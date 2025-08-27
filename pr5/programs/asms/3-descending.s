@@ -15,7 +15,6 @@ n:
 	.section .text
 	.globl   main
 main:
-
 	la       a0, n
 	lw       a0, 0(a0)          # a0 = n (size of array)
 	la       a1, a              # a1 = &a[0]
@@ -33,12 +32,12 @@ if:
 	add      t3, a1, t2         # t3 = &a[j]
 	lw       t5, 0(t3)          # t5 = a[j]
 
-	addi     t2, t1, 1          # t2 = i+1
+	addi     t2, t1, 1          # t2 = j+1
 	slli     t2, t2, 2
 	add      t4, a1, t2         # t4 = &a[j+1]
 	lw       t6, 0(t4)          # t6 = a[j+1]
 
-	ble      t5, t6, exit_inner # if a[j] >= a[j+1], break
+	bge      t5, t6, exit_inner # if a[j] >= a[j+1], break
 
 	sw       t5, 0(t4)
 	sw       t6, 0(t3)          # swap elements a[j] and a[j+1] in memory

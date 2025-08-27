@@ -39,6 +39,8 @@ n:
 	.section .text
 	.globl   main
 main:
+# Assumptions: The range of marks is integral from 0 to 10, so the size of the array
+# `count` is fixed to 11.
 
 	la       a0, marks  # a0 = &marks[0]
 	la       a1, n
@@ -46,7 +48,6 @@ main:
 	la       a2, count  # a2 = &count[0]
 
 	addi     t0, a1, -1 # i = n-1 (loop index)
-
 loop:
 	bltz     t0, exit   # if i < 0, exit loop
 
