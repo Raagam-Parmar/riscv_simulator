@@ -18,6 +18,7 @@ SECTIONS
   .text : { *(.text) } :text_seg
 
   /* data section: RW */
+  . = 0x80008000;
   .data : { *(.data) } :data_seg
 
   .sdata : {
