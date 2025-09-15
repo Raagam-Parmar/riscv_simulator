@@ -1,9 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-# See: https://github.com/riscv/riscv-isa-manual/releases/download/riscv-isa-release-82895c4-2025-09-11/riscv-unprivileged.pdf
-# Reference last updated: 3 days ago
-# 
 # RISC-V Unpriviledged ISA, Page 608
 # RV32I Instruction Set Listings 
 # 
@@ -22,9 +19,9 @@ from enum import Enum, auto
 # The blank fields are illegal instructions in RV32-IMA-ZICSR
 
 
-# R type instruction
+# Reg instruction
 # +-----------+-------+------+---------+------------+-----------+
-# | funct7    | rs2   | rs1  | funct3  |  rd        |  0110011  |
+# | funct7    | rs2   | rs1  | funct3  |     rd     |  0110011  |
 # +-----------+-------+------+---------+------------+-----------+
 class Reg_ops(Enum):
     # RV32-I
@@ -48,9 +45,6 @@ class Reg_ops(Enum):
     DIVU   = auto() 
     REM    = auto()
     REMU   = auto()    
-        
-    def __repr__(self):
-        return f"Reg Op:{self.name}"
     
     def __str__(self):
         return self.name.lower()
@@ -63,16 +57,14 @@ class Reg:
     rs1: int
     rs2: int
     
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \trs1:{self.rs1} \trs2:{self.rs2}"
-    
     def __str__(self):
+        # op    rd, rs1, rs2
         return f"{self.op} \tx{self.rd}, x{self.rs1}, x{self.rs2}"
 
 
-# I type instruction
+# Imm instruction
 # +-------------------+------+---------+------------+-----------+
-# | imm [11:0]        | rs1  | funct3  |  rd        |  0010011  |
+# | imm [11:0]        | rs1  | funct3  |  rd        |  opcode   |
 # +-------------------+------+---------+------------+-----------+
 class Imm_ops(Enum):
     # RV32-I
@@ -86,13 +78,7 @@ class Imm_ops(Enum):
     SLTI  = auto()
     SLTIU = auto()
     
-    JALR = auto()
-    
-    ECALL  = auto()
-    EBREAK = auto()
-    
-    def __repr__(self):
-        return f"Imm Op:{self.name}"
+    JALR  = auto()
     
     def __str__(self):
         return self.name.lower()
@@ -103,12 +89,10 @@ class Imm:
     op : Imm_ops
     rd : int
     rs1: int
-    imm: int # -2048 <= imm <= 2047  (2**11 = 2048)
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \trs1:{self.rs1} \timm:{self.imm}"
+    imm: int # encoded as -2048 <= imm <= 2047  (2**11 = 2048)
     
     def __str__(self):
+        # op    rd, rs1, imm
         return f"{self.op} \tx{self.rd}, x{self.rs1}, {self.imm}"
 
 
@@ -124,9 +108,6 @@ class Load_ops(Enum):
     LBU = auto()
     LHU = auto()
     
-    def __repr__(self):
-        return f"Load Op:{self.name}"
-    
     def __str__(self):
         return self.name.lower()
 
@@ -134,18 +115,16 @@ class Load_ops(Enum):
 @dataclass
 class Load:
     op : Load_ops
-    rd: int
+    rd : int
     rs1: int
-    imm: int # -2048 <= imm <= 2047  (2**11 = 2048)
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \trs1:{self.rs1} \timm:{self.imm}"
+    imm: int # encoded as -2048 <= imm <= 2047  (2**11 = 2048)
     
     def __str__(self):
+        # op    rd, imm(rs1)
         return f"{self.op} \tx{self.rd}, {self.imm}(x{self.rs1})"
 
 
-# S type instruction
+# Store instruction
 # +------------+------+------+---------+------------+-----------+
 # | imm[11:5]  | rs2  | rs1  | funct3  |  imm[4:0]  |  0100011  |
 # +------------+------+------+---------+------------+-----------+
@@ -154,9 +133,6 @@ class Store_ops(Enum):
     SB = auto()
     SH = auto()
     SW = auto()
-    
-    def __repr__(self):
-        return f"S-OP:{self.name}"
     
     def __str__(self):
         return self.name.lower()
@@ -167,16 +143,14 @@ class Store:
     op : Store_ops
     rs1: int
     rs2: int
-    imm: int # -2048 <= imm <= 2047   (2**11 = 2048)
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trs1:{self.rs1} \trs2:{self.rs2} \timm:{self.imm}"
+    imm: int # encoded as -2048 <= imm <= 2047   (2**11 = 2048)
     
     def __str__(self):
+        # op    rs2, imm(rs1)
         return f"{self.op} \tx{self.rs2}, {self.imm}(x{self.rs1})"
 
 
-# B type instruction
+# Branch instruction
 # +---------------+------+------+---------+---------------+-----------+
 # | imm[12|10:5]  | rs2  | rs1  | funct3  |  imm[4:1|11]  |  1100011  |
 # +---------------+------+------+---------+---------------+-----------+
@@ -189,9 +163,6 @@ class Branch_ops(Enum):
     BLTU = auto()
     BGEU = auto()
     
-    def __repr__(self):
-        return f"B-OP:{self.name}"
-    
     def __str__(self):
         return self.name.lower()
 
@@ -201,27 +172,22 @@ class Branch:
     op : Branch_ops
     rs1: int
     rs2: int
-    imm: int # -2048 <= imm <= 2047   (2**11 = 2048)
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trs1:{self.rs1} \trs2:{self.rs2} \timm:{self.imm}"
+    imm: int # encoded as -2048 <= imm <= 2047   (2**11 = 2048)
     
     def __str__(self):
+        # op    rs1, rs2, imm
         return f"{self.op} \tx{self.rs1}, x{self.rs2}, {self.imm}"
 
 
-# U type instruction
+# Upper Immediate instruction
 # +------------------------------------+------------+----------+
-# |            imm[31:12]              |  rd        |  opcode  |
+# |            imm[31:12]              |     rd     |  opcode  |
 # +------------------------------------+------------+----------+
 class Upper_ops(Enum):
     # RV32-I
     LUI = auto()
     AUIPC = auto()
         
-    def __repr__(self):
-        return f"U-OP:{self.name}"
-    
     def __str__(self):
         return self.name.lower()
 
@@ -230,25 +196,20 @@ class Upper_ops(Enum):
 class Upper:
     op : Upper_ops
     rd : int
-    imm: int # 0 <= imm <= 1048575   (2**20 = 1048576)
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \timm:{self.imm}"
+    imm: int # encoded as 0 <= imm <= 1048575   (2**20 = 1048576)
     
     def __str__(self):
+        # op    rd, imm
         return f"{self.op} \tx{self.rd}, {self.imm}"
 
 
-# J type instruction
+# Jump instruction
 # +------------------------------------+------------+----------+
-# |       imm[20|10:1|11|19:12]        |  rd        |  opcode  |
+# |       imm[20|10:1|11|19:12]        |     rd     |  opcode  |
 # +------------------------------------+------------+----------+
 class Jump_ops(Enum):
     # RV32-I
     JAL = auto()
-    
-    def __repr__(self):
-        return f"J-OP:{self.name}"
     
     def __str__(self):
         return self.name.lower()
@@ -258,16 +219,14 @@ class Jump_ops(Enum):
 class Jump:
     op : Jump_ops
     rd : int
-    imm: int # -524288 <= imm <= 524287   (2**19 = 524288)
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \timm:{self.imm}"
+    imm: int # encoded as -524288 <= imm <= 524287   (2**19 = 524288)
     
     def __str__(self):
+        # op    rd, imm
         return f"{self.op} \tx{self.rd}, {self.imm}"
 
 
-# TODO add str repr for misc mem instructions
+# TODO add str repr
 # Misc Mem instruction
 # +--------+---------+--------+-------+-------+------+-----------+
 # |   fm   |  pred   | succ   |  rs1  |  000  |  rd  |  0001111  |
@@ -277,9 +236,6 @@ class Misc_mem_ops(Enum):
     FENCE     = auto()
     FENCE_TSO = auto()
     PAUSE     = auto()
-    
-    def __repr__(self):
-        return f"MM-OP:{self.name}"
     
     def __str__(self):
         return self.name.lower().replace('_', '.')
@@ -294,11 +250,27 @@ class Misc_mem:
     pred: int
     fm  : int
     
-    def __repr__(self):
-        return f"OP:{self.op} \trd:{self.rd} \trs1:{self.rs1} \tsucc:{self.succ} \tpred:{self.pred} \tfm:{self.fm}"
-    
     def __str__(self):
-        return f"TODO"
+        if self.op != Misc_mem_ops.FENCE:
+            return f"{self.op}"
+        
+        pred = ""
+        succ = ""
+        
+        for i in reversed(range(4)):
+            if (self.pred >> i) & 0b1:
+                if i == 3: pred += "i"
+                if i == 2: pred += "o"
+                if i == 1: pred += "r"
+                if i == 0: pred += "w"
+            
+            if (self.succ >> i) & 0b1:
+                if i == 3: succ += "i"
+                if i == 2: succ += "o"
+                if i == 1: succ += "r"
+                if i == 0: succ += "w"
+
+        return f"{self.op} {pred}, {succ}"
 
 
 # Atomic instruction
@@ -319,9 +291,6 @@ class Atomic_ops(Enum):
     AMOMINU_W  = auto()
     AMOMAXU_W  = auto()
 
-    def __repr__(self):
-        return f"A-OP:{self.name}"
-    
     def __str__(self):
         return self.name.lower().replace('_', '.')
 
@@ -335,25 +304,23 @@ class Atomic:
     aq : int
     rl : int
     
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \trs1:{self.rs1} \trs2:{self.rs2} \taq:{self.aq} \trl:{self.rl}"
-    
     def __str__(self):
-        # show = f"{self.op}" + (".aq" if self.aq else "") + (".rl" if self.rl else "")
+        # op(.aq)(.rl)  rd, rs2, (rs1)
         show = f"{self.op}"
+        
         if self.aq and not self.rl:
             show += ".aq"
             
-        if self.rl and not self.aq:
+        elif self.rl and not self.aq:
             show += ".rl"
         
-        if self.aq and self.rl:
+        elif self.aq and self.rl:
             show += ".aqrl"
 
         return f"{show} \tx{self.rd}, x{self.rs2}, (x{self.rs1})"
 
 
-# System instruction
+# Environment instruction
 # +-----------------+--------+-------+----------+----------+-----------+
 # |   funct7        |  rs2   |  rs1  |  funct3  |  rd      |  1110011  |
 # +-----------------+--------+-------+----------+----------+-----------+
@@ -362,8 +329,12 @@ class System_ops(Enum):
     ECALL  = auto()
     EBREAK = auto()
     
-    def __repr__(self):
-        return f"SYS-OP:{self.name}"
+    # RV32 Privledged ISA
+    SRET = auto()
+    MRET = auto()
+    MNRET = auto()
+    
+    WFI = auto()
     
     def __str__(self):
         return self.name.lower()
@@ -373,10 +344,8 @@ class System_ops(Enum):
 class System:
     op : System_ops
     
-    def __repr__(self):
-        return f"Op:{self.op}"
-    
     def __str__(self):
+        # op
         return f"{self.op}"
     
 
@@ -384,34 +353,10 @@ class System:
 # +--------------------------+-------+----------+----------+-----------+
 # |            csr           | rs1   |  funct3  |  rd      |  1110011  |
 # +--------------------------+-------+----------+----------+-----------+
-class Csr(Enum):
-    # Floating point CSRs
-    fflags   = auto()
-    frm      = auto()
-    fcsr     = auto()
-    
-    # Counters and Timers
-    cycle    = auto()
-    time     = auto()
-    instret  = auto()
-    cycleh   = auto()
-    timeh    = auto()
-    instreth = auto()
-    
-    def __repr__(self):
-        return f"Csr Code:{self.name}"
-    
-    def __str__(self):
-        return self.name.lower()
-
-
 class Zicsr_ops(Enum):
     CSRRW = auto()
     CSRRS = auto()
     CSRRC = auto()
-    
-    def __repr__(self):
-        return f"Zicsr Op:{self.name}"
     
     def __str__(self):
         return self.name.lower()
@@ -422,13 +367,10 @@ class Zicsr:
     op : Zicsr_ops
     rd : int
     rs1: int
-    # csr: Csr
-    csr : int
-    
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \trs1:{self.rs1} \tcsr:{self.csr}"
+    csr: int
     
     def __str__(self):
+        # op    rd, csr, rs1
         return f"{self.op} \tx{self.rd}, 0x{self.csr:03x}, x{self.rs1}"
 
 
@@ -441,9 +383,6 @@ class Zicsr_imm_ops(Enum):
     CSRRSI = auto()
     CSRRCI = auto()
     
-    def __repr__(self):
-        return f"Zicsr Imm Op:{self.name}"
-    
     def __str__(self):
         return self.name.lower()
 
@@ -452,12 +391,9 @@ class Zicsr_imm_ops(Enum):
 class Zicsr_Imm:
     op  : Zicsr_imm_ops
     rd  : int
-    uimm: int # 0 <= uimm <= 32   (2**5 = 32)
-    # csr : Csr
+    uimm: int # encoded as 0 <= uimm <= 32   (2**5 = 32)
     csr : int
     
-    def __repr__(self):
-        return f"Op:{self.op} \trd:{self.rd} \trs1:{self.uimm} \tcsr:{self.csr}"
-    
     def __str__(self):
-        return f"{self.op} \tx{self.rd}, {self.csr}, {self.uimm}"
+        # op    rd, csr, uimm
+        return f"{self.op} \tx{self.rd}, 0x{self.csr:03x}, {self.uimm}"
