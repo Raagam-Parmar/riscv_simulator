@@ -99,11 +99,17 @@ class RAM:
         self.data.clear()
 
 
-    def load(self, data: bytes, base_addr: int):
-        """Load into RAM the contents in `bytes` starting at `base_addr`"""
-        
+    def load(self, data: bytes, base_addr: int) -> int:
+        """Load into RAM the contents in `bytes` starting at `base_addr`
+
+        Returns:
+            int: Number of bytes written
+        """
+
         for offset, byte in enumerate(data):
             self.write_byte(base_addr + offset, byte)
+        
+        return len(data)
 
 
     def print_words(self, min_word_addr: int, max_word_addr: int, higher_at_top: bool = True, little_endian : bool = True) -> None:
@@ -122,21 +128,11 @@ class RAM:
         self._check_word_addr(min_word_addr)
         self._check_word_addr(max_word_addr)
         
-        addr_range = range(min_word_addr, max_word_addr + 1)
+        addr_range = range(min_word_addr, max_word_addr + 1, 4)
         addr_range = reversed(addr_range) if higher_at_top else addr_range
 
         for wordAddr in addr_range:
-            hexWordAddr = hex(wordAddr)[2:].zfill(self.addr_width // 4)
-            
-            print(f"{hexWordAddr}: ", end='')
-            
-            byte_range = range(4)
-            byte_range = reversed(range(4)) if little_endian else byte_range
-                                    
-            for i in byte_range:
-                byte    = self.read_byte(wordAddr + i)
-                hexByte = hex(byte)[2:].zfill(2)
-                print(f"{hexByte}", end=' ')
+            print(bits.pp_word(wordAddr, self.width, ''), end='\t')
+            print(bits.pp_word(self.read_word(wordAddr), self.width, delimit='', little_endian=little_endian))
 
-            print("")
     

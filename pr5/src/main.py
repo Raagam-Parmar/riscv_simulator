@@ -3,6 +3,7 @@ import sys
 from ram import RAM
 from constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
 from disassembler import dis
+from bits import pp_word
 
 ram = RAM(BYTE_WIDTH, XWIDTH)
 
@@ -18,23 +19,26 @@ if argc != 2:
 
 file = sys.argv[1]
 
+n_bytes: int = 0
+
 with open(file, "rb") as f:
-    ram.load(f.read(), BASE_ADDR)
+    n_bytes = ram.load(f.read(), BASE_ADDR)
 
 
-# ram.print_words(0x80002000, 0x80002044)
-
-for addr in range(0x80000000, 0x80002044, 4):
-    # print(bin(ram.read_word(addr)))
+for addr in range(0x80000000, 0x80008000, 4):
     inst = ram.read_word(addr)
+    n_bytes -= 4
     
     if inst == 0:
-        continue
+        continue    
     
     diss = dis(inst)
+    pp_inst = pp_word(inst, BYTE_WIDTH, delimit='')
     
     if diss:
-        print(f"{addr:08x} \t{inst:08x} \t{diss}")
+        print(f"{addr:08x}\t{pp_inst}\t{diss}")
     else:
-        print(f"{addr:08x} \t{inst:08x}")
+        print(f"{addr:08x}\t{pp_inst}")
 
+
+ram.print_words(0x80008000, 0x80008000 + n_bytes - 4, False)

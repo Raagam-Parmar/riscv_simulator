@@ -1,7 +1,8 @@
 from typing import Dict, Tuple, Callable, Optional
 
 from isa import *
-import bits
+from isa_unpriv import *
+from bits import signed_max
 
 type funct3   = int
 type funct5   = int
@@ -9,7 +10,7 @@ type funct7   = int
 type opcode   = int
 type inst32   = int
 type mmconst  = int
-type sysconst = int
+type const    = int
 type csr      = int
 
 
@@ -23,7 +24,7 @@ def sign_wrap(value: int, width: int) -> int:
     if value < 0:
         raise ValueError("sign_wrap: Value can not be negative.", value)
     
-    if value > bits.signed_max(width):
+    if value > signed_max(width):
         return value - 2 ** width
     
     return value
@@ -48,6 +49,7 @@ RS1    = Field(19, 15)
 RS2    = Field(24, 20)
 FUNCT7 = Field(31, 25)
 CONST  = Field(31, 7)
+MSB    = Field(31, 31)
 
 
 
@@ -73,9 +75,9 @@ def decode_load(inst: inst32) -> Optional[Instruction]:
 
     rd  = RD.extract(inst)    
     rs1 = RS1.extract(inst)
-    imm = I_IMM.extract(inst)
+    imm = sign_wrap(I_IMM.extract(inst), I_IMM_WIDTH)
     
-    return Load(load_tbl[fun3], rd, rs1, sign_wrap(imm, I_IMM_WIDTH))
+    return Load(load_tbl[fun3], rd, rs1, imm)
 
 
 
@@ -104,15 +106,16 @@ def decode_store(inst: inst32) -> Optional[Instruction]:
     imm11_5 = S_IMM_11_5.extract(inst)
     
     imm = imm11_5 << 5 | imm4_0
+    imm = sign_wrap(imm, S_IMM_WIDTH)
     
-    return Store(store_tbl[fun3], rs1, rs2, sign_wrap(imm, S_IMM_WIDTH))
+    return Store(store_tbl[fun3], rs1, rs2, imm)
 
 
 
 # -----------------------------------------------------------------------------
 # Branch Instruction
 # -----------------------------------------------------------------------------
-B_IMM_12   = Field(31, 31)
+B_IMM_12   = MSB
 B_IMM_10_5 = Field(30, 25)
 B_IMM_4_1  = Field(11, 8)
 B_IMM_11   = Field(7, 7)
@@ -141,8 +144,9 @@ def decode_branch(inst: inst32) -> Optional[Instruction]:
     imm4_1  = B_IMM_4_1.extract(inst)
     
     imm = imm12 << 12 | imm11 << 11 | imm10_5 << 5 | imm4_1 << 1
+    imm = sign_wrap(imm, B_IMM_WIDTH)
     
-    return Branch(branch_tbl[fun3], rs1, rs2, sign_wrap(imm, B_IMM_WIDTH))
+    return Branch(branch_tbl[fun3], rs1, rs2, imm)
 
 
 
@@ -157,9 +161,9 @@ def decode_jalr(inst: inst32) -> Optional[Instruction]:
     
     rd   = RD.extract(inst)
     rs1  = RS1.extract(inst)
-    imm  = I_IMM.extract(inst)
+    imm  = sign_wrap(I_IMM.extract(inst), I_IMM_WIDTH)
     
-    return Imm(Imm_ops.JALR, rd, rs1, sign_wrap(imm, I_IMM_WIDTH))
+    return Imm(Imm_ops.JALR, rd, rs1, imm)
 
 
 
@@ -245,7 +249,7 @@ def decode_amo(inst: inst32) -> Optional[Instruction]:
 # -----------------------------------------------------------------------------
 # JAL
 # -----------------------------------------------------------------------------
-J_IMM_20    = Field(31, 31)
+J_IMM_20    = MSB
 J_IMM_10_1  = Field(30, 21)
 J_IMM_11    = Field(20, 20)
 J_IMM_19_12 = Field(19, 12)
@@ -287,16 +291,16 @@ def decode_op_imm(inst: inst32) -> Optional[Instruction]:
     fun3 = FUNCT3.extract(inst)
     rd   = RD.extract(inst)
     rs1  = RS1.extract(inst)
-    imm  = I_IMM.extract(inst)
     fun7 = FUNCT7.extract(inst)
+    imm  = sign_wrap(I_IMM.extract(inst), I_IMM_WIDTH)
     
     if fun3 in op_imm_f3_tbl:
-        return Imm(op_imm_f3_tbl[fun3], rd, rs1, sign_wrap(imm, I_IMM_WIDTH))
+        return Imm(op_imm_f3_tbl[fun3], rd, rs1, imm)
     
     if (fun3, fun7) not in op_imm_f3_f7_tbl:
         return None
     
-    return Imm(op_imm_f3_f7_tbl[(fun3, fun7)], rd, rs1, sign_wrap(imm, I_IMM_WIDTH))
+    return Imm(op_imm_f3_f7_tbl[(fun3, fun7)], rd, rs1, imm)
 
 
 
@@ -380,7 +384,7 @@ def decode_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
     csr = CSR.extract(inst)
     rd  = RD.extract(inst)
     
-    return Zicsr_Imm(zicsr_imm_tbl[fun3], rd, imm, csr)    
+    return Zicsr_Imm(zicsr_imm_tbl[fun3], rd, csr, imm)    
 
 
 
@@ -389,7 +393,7 @@ def decode_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
 # -----------------------------------------------------------------------------
 SYS_CONST = CONST
 
-system_tbl : Dict[sysconst, System_ops] = {
+system_tbl : Dict[const, System_ops] = {
     0x0000: System_ops.ECALL,
     0x2000: System_ops.EBREAK,
     
