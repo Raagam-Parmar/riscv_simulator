@@ -1,3 +1,6 @@
+"""8, the standard byte width"""
+BYTE_WIDTH = 8
+
 """Width of RISC-V registers (32 bits for RV32)"""
 XWIDTH = 32
 

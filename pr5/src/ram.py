@@ -2,38 +2,16 @@ from typing import Dict
 
 import bits
 
+
 class AddressOutOfRange(Exception):
-    def __init__(self, addr: int, upper: int):
-        self.message = f"Address {addr} out of range [0, {upper}]"
+    def __init__(self, addr: int, maxAddr: int):
+        self.message = f"Address {addr} out of range [0, {maxAddr}]"
         super().__init__(self.message)
 
 
-class SignedUnderflow(Exception):
-    def __init__(self, data: int, width: int):
-        m = bits.signed_min(width)
-        self.message = f"Value {data} less than minimum signed value {m}."
-        super().__init__(self.message)
-
-
-class SignedOverflow(Exception):
-    def __init__(self, data: int, width: int):
-        M = bits.signed_max(width)
-        self.message = f"Value {data} more than maximum signed value {M}."
-        super().__init__(self.message)
-
-
-class UnsignedUnderflow(Exception):
-    def __init__(self, data: int, width: int):
-        m = bits.unsigned_min()
-        self.message = f"Value {data} less than minimum unsigned value {m}."
-        super().__init__(self.message)
-
-
-class UnsignedOverflow(Exception):
-    def __init__(self, data: int, width: int):
-        M = bits.unsigned_max(width)
-        self.message = f"Value {data} more than maximum unsigned value {M}."
-        super().__init__(self.message)
+class AddressMisaligned(Exception):
+    def __init__(self, address: int, align: int):
+        super().__init__(f"Address {address} is not {align}-byte aligned")
 
 
 class InvalidRange(Exception):
@@ -47,105 +25,66 @@ class RAM:
         """Initialise the RAM with specified `width` and `address width`.
 
         Args:
-            width (int): Width in bits for each memory cell
-            addr_width (int): Log2 of the number of such memory cells
+            width/byte: Width in bits for each memory cell
+            addr_width: Log2 of the number of such memory cells
         """
-        self.width = width
+        self.width      = width
         self.depth: int = 2 ** addr_width
         self.addr_width = addr_width
+        self.BYTE_MASK  = (1 << self.width) - 1
         
         self.data : Dict[int, int] = {}
     
     
-    def _verify_address(self, address: int, addrMax: int) -> None:
-        """Verify that the `address` lies within `0...addrMax`.
+    def _check_byte_addr(self, address: int) -> None:
+        addr_max = self.depth - 1
+        
+        if not (0 <= address <= addr_max):
+            raise AddressOutOfRange(address, addr_max)
 
-        Raises:
-            AddressOutOfRange: Address does not lie in the specified range.
-        """
-        if not (0 <= address <= addrMax):
-            raise AddressOutOfRange(address, addrMax)
-        return None
+
+    def _check_word_addr(self, address: int) -> None:
+        if address & 0b11:
+            raise AddressMisaligned(address, 4)
+        
+        addr_max = self.depth - 4
+        if not (0 <= address <= addr_max):
+            raise AddressOutOfRange(address, addr_max)
     
     
     def _verify_data(self, data: int, width: int) -> None:
-        """Verify that `data` fits in `width` bits.
-        
-        Raises:
-            UnsignedUnderflow: If `data` is less than `0`
-            UnsignedOverflow: If `data` is more than `2^width - 1`
-        """
-        if data < 0:
-            raise UnsignedUnderflow(data, width)
-        
-        if data > bits.unsigned_max(width):
-            raise UnsignedOverflow(data, width)
+        bits.verifyUnsigned(data, width)
     
     
     def read_byte(self, address: int) -> int:
-        """Reads one byte at the given `address`.
-
-        Raises:
-            AddressOutOfRange: If `address` is out of range for the RAM
-
-        Returns:
-            int: Data stored at address
-        """
-        self._verify_address(address, self.depth - 1)
-
-        if address in self.data:
-            return self.data[address]        
-        return 0
+        self._check_byte_addr(address)
+        return self.data.get(address, 0)    
     
     
     def write_byte(self, address: int, data: int) -> None:
-        """Writes one byte `data` at the given `address`.
-
-        Raises:
-            AddressOutOfRange: If `address` is out of range for the RAM
-            UnsignedUnderflow: If `data` is less than `0`
-            UnsignedOverflow: If `data` is more than `2^width - 1`
-        """
-        self._verify_address(address, self.depth - 1)
-
+        self._check_byte_addr(address)
         self._verify_data(data, self.width)
 
         if data == 0:
             self.data.pop(address, None)
         else:
             self.data[address] = data
-        return None
     
             
     def read_word(self, address: int) -> int:
-        """Reads 4 bytes of data at starting at the givn `address`.
-
-        Raises:
-            AddressOutOfRange: If `address` is out of range for the RAM
-
-        Returns:
-            int: Data stored in the word starting at `address`
-        """
-        self._verify_address(address, self.depth - 4)
+        self._check_word_addr(address)
         
         data: int = 0
-            
-        for i in range(4):
-            byte = self.read_byte(address + i)
-            data |= byte << (i * self.width)
         
+        for i in range(4):
+            byte = self.read_byte(address + i) & self.BYTE_MASK
+            data |= byte << (i * self.width)
+
         return data
     
     
     def write_word(self, address: int, data: int) -> None:
-        """Writes 4 bytes of `data`, starting at the given `address`.
-
-        Raises:
-            AddressOutOfRange: If `address` is out of range for the RAM
-            UnsignedUnderflow: If `data` is less than `0`
-            UnsignedOverflow: If `data` is more than `2^(width*4) - 1`
-        """
-        self._verify_address(address, self.depth - 4)
+        self._check_word_addr(address)
         self._verify_data(data, self.width * 4)
 
         mask = bits.unsigned_max(self.width)
@@ -154,33 +93,48 @@ class RAM:
             byte = (data >> (i * self.width)) & mask
             self.write_byte(address + i, byte)
 
-        return None
-    
-    
+
     def clear(self) -> None:
-        """Clear the contents of the RAM"""
+        """Clear RAM to all zeroes."""
         self.data.clear()
-    
-    
-    def load(self, data: bytes, base_addr: int) -> None:
+
+
+    def load(self, data: bytes, base_addr: int):
+        """Load into RAM the contents in `bytes` starting at `base_addr`"""
+        
         for offset, byte in enumerate(data):
             self.write_byte(base_addr + offset, byte)
-    
-    
-    def print_words(self, minAddr: int, maxAddr: int) -> None:
-        if minAddr > maxAddr:
-            raise InvalidRange(minAddr, maxAddr)
 
-        minWordAddr = minAddr - (minAddr % 4)            
-        maxWordAddr = maxAddr - (maxAddr % 4)
 
-        for wordAddr in reversed(range(minWordAddr, 1 + maxWordAddr, 4)):
+    def print_words(self, min_word_addr: int, max_word_addr: int, higher_at_top: bool = True, little_endian : bool = True) -> None:
+        """Print the contents of the RAM, starting at 4-byte aligned `min_word_addr` and `max_word_addr`.
+        
+        If `higher_at_top` is set (default), higher addresses are printed first, otherwise lower addresses are printed first.
+        
+        If `little_endian` is set (default), bytes are printing in little endian format, otherwise big endian format.
+
+        Raises:
+            InvalidRange: If `min_word_addr` > `max_word_addr`
+        """
+        if min_word_addr > max_word_addr:
+            raise InvalidRange(min_word_addr, max_word_addr)
+
+        self._check_word_addr(min_word_addr)
+        self._check_word_addr(max_word_addr)
+        
+        addr_range = range(min_word_addr, max_word_addr + 1)
+        addr_range = reversed(addr_range) if higher_at_top else addr_range
+
+        for wordAddr in addr_range:
             hexWordAddr = hex(wordAddr)[2:].zfill(self.addr_width // 4)
             
             print(f"{hexWordAddr}: ", end='')
             
-            for i in reversed(range(4)):
-                byte = self.read_byte(wordAddr + i)
+            byte_range = range(4)
+            byte_range = reversed(range(4)) if little_endian else byte_range
+                                    
+            for i in byte_range:
+                byte    = self.read_byte(wordAddr + i)
                 hexByte = hex(byte)[2:].zfill(2)
                 print(f"{hexByte}", end=' ')
 
