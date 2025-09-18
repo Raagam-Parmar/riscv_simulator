@@ -132,7 +132,7 @@ class RAM:
         addr_range = reversed(addr_range) if higher_at_top else addr_range
 
         for wordAddr in addr_range:
-            print(bits.pp_word(wordAddr, self.width, ''), end='\t')
+            print(bits.pp_word(wordAddr, self.width, ''), end=':\t')
             print(bits.pp_word(self.read_word(wordAddr), self.width, delimit='', little_endian=little_endian))
 
     

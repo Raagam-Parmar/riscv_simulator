@@ -109,6 +109,7 @@ class Reg:
 
 
 # Imm instruction
+# Base ISA Immediate Operations and JALR
 # +-------------------+------+---------+------------+-----------+
 # | imm [11:0]        | rs1  | funct3  |  rd        |  opcode   |
 # +-------------------+------+---------+------------+-----------+
@@ -150,6 +151,7 @@ class Imm:
 
 
 # Load instruction
+#  Base ISA Load operations
 # +-------------------+------+---------+------------+-----------+
 # | imm [11:0]        | rs1  | funct3  |  rd        |  0000011  |
 # +-------------------+------+---------+------------+-----------+
@@ -185,6 +187,7 @@ class Load:
 
 
 # Store instruction
+#  Base ISA store operations
 # +------------+------+------+---------+------------+-----------+
 # | imm[11:5]  | rs2  | rs1  | funct3  |  imm[4:0]  |  0100011  |
 # +------------+------+------+---------+------------+-----------+
@@ -218,6 +221,7 @@ class Store:
 
 
 # Branch instruction
+# Base ISA branch operations
 # +---------------+------+------+---------+---------------+-----------+
 # | imm[12|10:5]  | rs2  | rs1  | funct3  |  imm[4:1|11]  |  1100011  |
 # +---------------+------+------+---------+---------------+-----------+
@@ -251,10 +255,11 @@ class Branch:
     
     def __str__(self):
         # op    rs1, rs2, imm
-        return f"{self.op} \tx{self.rs1}, x{self.rs2}, {self.imm}"
+        return f"{self.op} \tx{self.rs1}, x{self.rs2}, {hex(self.imm)}"
 
 
 # Upper Immediate instruction
+# Base ISA U-type instructions (LUI, AUIPC)
 # +------------------------------------+------------+----------+
 # |            imm[31:12]              |     rd     |  opcode  |
 # +------------------------------------+------------+----------+
@@ -281,10 +286,11 @@ class Upper:
     
     def __str__(self):
         # op    rd, imm
-        return f"{self.op} \tx{self.rd}, {self.imm}"
+        return f"{self.op} \tx{self.rd}, {hex(self.imm)}"
 
 
 # Jump instruction
+# Base ISA J-type instructions (JAL)
 # +------------------------------------+------------+----------+
 # |       imm[20|10:1|11|19:12]        |     rd     |  opcode  |
 # +------------------------------------+------------+----------+
@@ -311,10 +317,11 @@ class Jump:
     
     def __str__(self):
         # op    rd, imm
-        return f"{self.op} \tx{self.rd}, {self.imm}"
+        return f"{self.op} \tx{self.rd}, {hex(self.imm)}"
 
 
 # Misc Mem instruction
+# Base ISA Misc Mem Instructions (FENCE, FENCE.TSO, PAUSE)
 # +--------+---------+--------+-------+-------+------+-----------+
 # |   fm   |  pred   | succ   |  rs1  |  000  |  rd  |  0001111  |
 # +--------+---------+--------+-------+-------+------+-----------+
@@ -368,6 +375,7 @@ class Misc_mem:
 
 
 # Atomic instruction
+# Atomic Extension (R-type instructions)
 # +--------+----+----+-------+------+---------+------------+-----------+
 # | funct5 | aq | rl |  rs2  | rs1  |  010    |  rd        |  0101111  |
 # +--------+----+----+-------+------+---------+------------+-----------+
@@ -421,6 +429,8 @@ class Atomic:
 
 
 # Environment instruction
+# Base ISA System Instructions (ECALL, EBREAK)
+# Some of Priviledged ISA instructions (SRET, MRET, MNRET, WFI)
 # +-----------------+--------+-------+----------+----------+-----------+
 # |   funct7        |  rs2   |  rs1  |  funct3  |  rd      |  1110011  |
 # +-----------------+--------+-------+----------+----------+-----------+
@@ -450,6 +460,7 @@ class System:
     
 
 # Zicsr instruction
+# Zicsr Extension (R-type instructions)
 # +--------------------------+-------+----------+----------+-----------+
 # |            csr           | rs1   |  funct3  |  rd      |  1110011  |
 # +--------------------------+-------+----------+----------+-----------+
@@ -480,6 +491,7 @@ class Zicsr:
 
 
 # Zicsr Immediate instruction
+# Zicsr Extension (I-type instructions)
 # +--------------------------+-------+----------+----------+-----------+
 # |            csr           | uimm  |  funct3  |  rd      |  1110011  |
 # +--------------------------+-------+----------+----------+-----------+

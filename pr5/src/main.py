@@ -25,10 +25,16 @@ with open(file, "rb") as f:
     n_bytes = ram.load(f.read(), BASE_ADDR)
 
 
+print('Disassembly of .text (0x80000000)')
+
 for addr in range(0x80000000, 0x80008000, 4):
     inst = ram.read_word(addr)
-    n_bytes -= 4
     
+    if n_bytes <= 0:
+        break
+    
+    n_bytes -= 4
+
     if inst == 0:
         continue    
     
@@ -36,9 +42,12 @@ for addr in range(0x80000000, 0x80008000, 4):
     pp_inst = pp_word(inst, BYTE_WIDTH, delimit='')
     
     if diss:
-        print(f"{addr:08x}\t{pp_inst}\t{diss}")
+        print(f"{addr:08x}:\t{pp_inst}          \t{diss}")
     else:
-        print(f"{addr:08x}\t{pp_inst}")
+        print(f"{addr:08x}:\t{pp_inst}          unknown")
 
 
-ram.print_words(0x80008000, 0x80008000 + n_bytes - 4, False)
+print('\n\n.data    (0x80008000)')
+
+if n_bytes > 0:
+    ram.print_words(0x80008000, 0x80008000 + n_bytes - 4, False)
