@@ -43,7 +43,7 @@ bins/c_tests/%.r5o: c_tests/%.c
 
 dumps/asms/%.r5o.dump: bins/asms/%.r5o
 	mkdir -p dumps/asms
-	$(RISCV)objdump -j .text -j .data -d $< > $@
+	$(RISCV)objdump -d $< > $@
 
 dumps/c_tests/%.r5o.dump: bins/c_tests/%.r5o
 	mkdir -p dumps/c_tests

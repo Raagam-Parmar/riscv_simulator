@@ -5,6 +5,8 @@ import sys
 import ram
 import loader
 import logger
+import statistics
+import core
 
 def parse_args():
     parser = argparse.ArgumentParser(description="pr5 Simulator")
@@ -27,12 +29,13 @@ def run_simulation():
 
     mem = ram.RAM(loggr)
     loader.load(mem, args.r5ob_path)
-    mem.dump(0x80000000, 0x80000010)
+    processor = core.SingleCycleProcessor(args.start, mem, loggr)
 
     loggr.info(f"Start address: {hex(args.start)}")
     loggr.info(f"Executable path: {args.r5ob_path}")
     loggr.info(f"Number of instructions: {args.num_insts}")
 
+    processor.run(args.num_insts)
 
 if __name__ == "__main__":
     run_simulation()

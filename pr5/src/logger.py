@@ -20,7 +20,7 @@ def setup():
     console_handler.setLevel(logging.INFO)
     
     # logging to a file
-    file_handler = logging.FileHandler("sim.log")
+    file_handler = logging.FileHandler("sim.log", mode='w')
     file_handler.setLevel(logging.DEBUG)
     
     # log format
