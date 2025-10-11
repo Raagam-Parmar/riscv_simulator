@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from enums import *
-from verify import *
+from .enums import *
+from .verify import *
 
 
 @dataclass(frozen=True)

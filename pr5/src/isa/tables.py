@@ -1,6 +1,6 @@
 from typing import Dict, Tuple
 
-from enums import *
+from .enums import *
 
 type funct3 = int
 type funct5 = int

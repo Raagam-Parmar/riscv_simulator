@@ -1,5 +1,5 @@
 from typing import Union
-from formats import (
+from .formats import (
     Reg,
     Imm,
     Load,

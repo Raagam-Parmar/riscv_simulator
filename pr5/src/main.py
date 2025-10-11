@@ -1,9 +1,9 @@
 import sys
 
-from pr5.src.ram import RAM
-from pr5.src.utils.constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
-from pr5.src.decode.disassembler import dis
-from pr5.src.utils.bits import pp_word
+from ram import RAM
+from utils.constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
+from decode.disassembler import dis
+from utils.pretty import pp_word
 import logger
 
 loggr = logger.setup()

@@ -1,12 +1,11 @@
 from typing import Dict, Callable, Optional
 
-
-from pr5.src.utils.bits import signed_max
+from utils.bits import signed_max
 from core.typs import inst32
 from isa.types import *
 from isa.enums import *
 from isa.tables import *
-from fields import *
+from .fields import *
 
 
 class InvalidInstruction(Exception):
@@ -28,15 +27,15 @@ def sign_wrap(value: int, width: int) -> int:
 # ---------------------------------------------------------------------------- #
 # Load Instruction
 # ---------------------------------------------------------------------------- #
-def decode_load(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
+def disassemble_load(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
 
     if fun3 not in load_tbl:
         return None
 
-    rd = RD.extract(inst)
-    rs1 = RS1.extract(inst)
-    imm = sign_wrap(I_IMM.extract(inst), i_imm_width)
+    rd = rd_field.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    imm = sign_wrap(i_imm_field.extract(inst), i_imm_width)
 
     return Load(load_tbl[fun3], rd, rs1, imm)
 
@@ -44,16 +43,16 @@ def decode_load(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Store Instruction
 # ---------------------------------------------------------------------------- #
-def decode_store(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
+def disassemble_store(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
 
     if fun3 not in store_tbl:
         return None
 
-    rs1 = RS1.extract(inst)
-    rs2 = RS2.extract(inst)
-    imm4_0 = S_IMM_4_0.extract(inst)
-    imm11_5 = S_IMM_11_5.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    rs2 = rs2_field.extract(inst)
+    imm4_0 = s_imm_low_field.extract(inst)
+    imm11_5 = s_imm_high_field.extract(inst)
 
     imm = imm11_5 << 5 | imm4_0
     imm = sign_wrap(imm, s_imm_width)
@@ -64,18 +63,18 @@ def decode_store(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Branch Instruction
 # ---------------------------------------------------------------------------- #
-def decode_branch(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
+def disassemble_branch(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
 
     if fun3 not in branch_tbl:
         return None
 
-    rs1 = RS1.extract(inst)
-    rs2 = RS2.extract(inst)
-    imm12 = B_IMM_12.extract(inst)
-    imm11 = B_IMM_11.extract(inst)
-    imm10_5 = B_IMM_10_5.extract(inst)
-    imm4_1 = B_IMM_4_1.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    rs2 = rs2_field.extract(inst)
+    imm12 = b_imm_12_field.extract(inst)
+    imm11 = b_imm_11_field.extract(inst)
+    imm10_5 = b_imm_10_5_field.extract(inst)
+    imm4_1 = b_immm_4_1_field.extract(inst)
 
     imm = imm12 << 12 | imm11 << 11 | imm10_5 << 5 | imm4_1 << 1
     imm = sign_wrap(imm, b_imm_width)
@@ -86,15 +85,15 @@ def decode_branch(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # JALR
 # ---------------------------------------------------------------------------- #
-def decode_jalr(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
+def disassemble_jalr(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
 
     if fun3 != 0b000:
         return None
 
-    rd = RD.extract(inst)
-    rs1 = RS1.extract(inst)
-    imm = sign_wrap(I_IMM.extract(inst), i_imm_width)
+    rd = rd_field.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    imm = sign_wrap(i_imm_field.extract(inst), i_imm_width)
 
     return Imm(Imm_ops.JALR, rd, rs1, imm)
 
@@ -102,16 +101,16 @@ def decode_jalr(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Misc Memory Instruction
 # ---------------------------------------------------------------------------- #
-def decode_misc_mem(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
+def disassemble_misc_mem(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
 
-    const = MM_CONST.extract(inst)
+    const = mm_const_field.extract(inst)
 
-    rd = RD.extract(inst)
-    rs1 = RS1.extract(inst)
-    succ = MM_SUCC.extract(inst)
-    pred = MM_PRED.extract(inst)
-    fm = MM_FM.extract(inst)
+    rd = rd_field.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    succ = mm_succ_field.extract(inst)
+    pred = mm_pred_field.extract(inst)
+    fm = mm_fm_field.extract(inst)
 
     if fun3 != 0b000:
         return None
@@ -124,26 +123,26 @@ def decode_misc_mem(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Atomic Instruction
 # ---------------------------------------------------------------------------- #
-def decode_amo(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
+def disassemble_amo(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
 
     if fun3 != 0b010:
         return None
 
-    fun5 = A_FUN5.extract(inst)
+    fun5 = a_fun5_field.extract(inst)
 
     if fun5 not in amo_tbl:
         return None
 
-    rs2 = RS2.extract(inst)
+    rs2 = rs2_field.extract(inst)
 
     if (fun5 == 0b00010) and (rs2 != 0b00000):
         return None
 
-    rs1 = RS1.extract(inst)
-    rd = RD.extract(inst)
-    aq = A_AQ.extract(inst)
-    rl = A_RL.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    rd = rd_field.extract(inst)
+    aq = a_aq_field.extract(inst)
+    rl = a_rl_field.extract(inst)
 
     return Atomic(amo_tbl[fun5], rd, rs1, rs2, aq, rl)
 
@@ -151,12 +150,12 @@ def decode_amo(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # JAL
 # ---------------------------------------------------------------------------- #
-def decode_jal(inst: inst32) -> Optional[Instruction]:
-    rd = RD.extract(inst)
-    imm20 = J_IMM_20.extract(inst)
-    imm10_1 = J_IMM_10_1.extract(inst)
-    imm11 = J_IMM_11.extract(inst)
-    imm19_12 = J_IMM_19_12.extract(inst)
+def disassemble_jal(inst: inst32) -> Optional[Instruction]:
+    rd = rd_field.extract(inst)
+    imm20 = j_imm_20_field.extract(inst)
+    imm10_1 = j_imm_10_1_field.extract(inst)
+    imm11 = j_imm_11_field.extract(inst)
+    imm19_12 = j_imm_19_field.extract(inst)
 
     imm = imm20 << 20 | imm19_12 << 12 | imm11 << 11 | imm10_1 << 1
     imm = sign_wrap(imm, j_imm_width)
@@ -167,12 +166,12 @@ def decode_jal(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Imm Op Instruction
 # ---------------------------------------------------------------------------- #
-def decode_op_imm(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
-    rd = RD.extract(inst)
-    rs1 = RS1.extract(inst)
-    fun7 = FUNCT7.extract(inst)
-    imm = sign_wrap(I_IMM.extract(inst), i_imm_width)
+def disassemble_op_imm(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
+    rd = rd_field.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    fun7 = fun7_field.extract(inst)
+    imm = sign_wrap(i_imm_field.extract(inst), i_imm_width)
 
     if fun3 in op_imm_f3_tbl:
         return Imm(op_imm_f3_tbl[fun3], rd, rs1, imm)
@@ -186,18 +185,18 @@ def decode_op_imm(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Reg Op Instruction
 # ---------------------------------------------------------------------------- #
-def decode_op(inst: inst32) -> Optional[Instruction]:
-    fun3 = FUNCT3.extract(inst)
-    fun7 = FUNCT7.extract(inst)
+def disassemble_op(inst: inst32) -> Optional[Instruction]:
+    fun3 = funct3_field.extract(inst)
+    fun7 = fun7_field.extract(inst)
 
     pair = (fun3, fun7)
 
     if pair not in op_tbl:
         return None
 
-    rd = RD.extract(inst)
-    rs1 = RS1.extract(inst)
-    rs2 = RS2.extract(inst)
+    rd = rd_field.extract(inst)
+    rs1 = rs1_field.extract(inst)
+    rs2 = rs2_field.extract(inst)
 
     return Reg(op_tbl[pair], rd, rs1, rs2)
 
@@ -205,10 +204,10 @@ def decode_op(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Zicsr Instruction
 # ---------------------------------------------------------------------------- #
-def decode_zicsr(inst: inst32, fun3: funct3) -> Optional[Instruction]:
-    rs1 = RS1.extract(inst)
-    csr = CSR.extract(inst)
-    rd = RD.extract(inst)
+def disassemble_zicsr(inst: inst32, fun3: funct3) -> Optional[Instruction]:
+    rs1 = rs1_field.extract(inst)
+    csr = csr_field.extract(inst)
+    rd = rd_field.extract(inst)
 
     return Zicsr(zicsr_tbl[fun3], rd, rs1, csr)
 
@@ -216,10 +215,10 @@ def decode_zicsr(inst: inst32, fun3: funct3) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Zicsr Immediate Instruction
 # ---------------------------------------------------------------------------- #
-def decode_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
-    imm = CSR_UIMM.extract(inst)
-    csr = CSR.extract(inst)
-    rd = RD.extract(inst)
+def disassemble_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
+    imm = csr_uimm_field.extract(inst)
+    csr = csr_field.extract(inst)
+    rd = rd_field.extract(inst)
 
     return Zicsr_Imm(zicsr_imm_tbl[fun3], rd, csr, imm)
 
@@ -227,19 +226,19 @@ def decode_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # System Instruction
 # ---------------------------------------------------------------------------- #
-def decode_system(inst: inst32) -> Optional[Instruction]:
-    sys_const = SYS_CONST.extract(inst)
+def disassemble_system(inst: inst32) -> Optional[Instruction]:
+    sys_const = sys_const_field.extract(inst)
 
     if sys_const in system_tbl:
         return System(system_tbl[sys_const])
 
-    fun3 = FUNCT3.extract(inst)
+    fun3 = funct3_field.extract(inst)
 
     if fun3 in zicsr_tbl:
-        return decode_zicsr(inst, fun3)
+        return disassemble_zicsr(inst, fun3)
 
     if fun3 in zicsr_imm_tbl:
-        return decode_zicsr_imm(inst, fun3)
+        return disassemble_zicsr_imm(inst, fun3)
 
     return None
 
@@ -247,9 +246,9 @@ def decode_system(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # AUIPC
 # ---------------------------------------------------------------------------- #
-def decode_auipc(inst: inst32) -> Optional[Instruction]:
-    rd = RD.extract(inst)
-    imm = U_IMM.extract(inst)
+def disassemble_auipc(inst: inst32) -> Optional[Instruction]:
+    rd = rd_field.extract(inst)
+    imm = u_imm_field.extract(inst)
 
     return Upper(Upper_ops.AUIPC, rd, imm)
 
@@ -257,9 +256,9 @@ def decode_auipc(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # LUI
 # ---------------------------------------------------------------------------- #
-def decode_lui(inst: inst32) -> Optional[Instruction]:
-    rd = RD.extract(inst)
-    imm = U_IMM.extract(inst)
+def disassemble_lui(inst: inst32) -> Optional[Instruction]:
+    rd = rd_field.extract(inst)
+    imm = u_imm_field.extract(inst)
 
     return Upper(Upper_ops.LUI, rd, imm)
 
@@ -268,18 +267,18 @@ def decode_lui(inst: inst32) -> Optional[Instruction]:
 # Opcode Map
 # ---------------------------------------------------------------------------- #
 opcode_tbl: Dict[int, Callable[[inst32], Optional[Instruction]]] = {
-    0b0000011: decode_load,
-    0b0100011: decode_store,
-    0b1100011: decode_branch,
-    0b1100111: decode_jalr,
-    0b0001111: decode_misc_mem,
-    0b0101111: decode_amo,
-    0b1101111: decode_jal,
-    0b0010011: decode_op_imm,
-    0b0110011: decode_op,
-    0b1110011: decode_system,
-    0b0010111: decode_auipc,
-    0b0110111: decode_lui,
+    0b0000011: disassemble_load,
+    0b0100011: disassemble_store,
+    0b1100011: disassemble_branch,
+    0b1100111: disassemble_jalr,
+    0b0001111: disassemble_misc_mem,
+    0b0101111: disassemble_amo,
+    0b1101111: disassemble_jal,
+    0b0010011: disassemble_op_imm,
+    0b0110011: disassemble_op,
+    0b1110011: disassemble_system,
+    0b0010111: disassemble_auipc,
+    0b0110111: disassemble_lui,
 }
 
 
@@ -287,7 +286,7 @@ opcode_tbl: Dict[int, Callable[[inst32], Optional[Instruction]]] = {
 # Disassembler
 # ---------------------------------------------------------------------------- #
 def dis(inst: inst32) -> Optional[Instruction]:
-    opcode = OPCODE.extract(inst)
+    opcode = opcode_field.extract(inst)
 
     if opcode not in opcode_tbl:
         return None
