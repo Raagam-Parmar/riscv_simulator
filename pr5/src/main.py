@@ -1,11 +1,15 @@
 import sys
 
-from pr5.src.mem import RAM
-from constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
-from disassembler import dis
-from bits import pp_word
+from pr5.src.ram import RAM
+from pr5.src.utils.constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
+from pr5.src.decode.disassembler import dis
+from pr5.src.utils.bits import pp_word
+import logger
 
-ram = RAM(BYTE_WIDTH, XWIDTH)
+loggr = logger.setup()
+
+
+ram = RAM(BYTE_WIDTH, XWIDTH, loggr)
 
 argc = len(sys.argv)
 
