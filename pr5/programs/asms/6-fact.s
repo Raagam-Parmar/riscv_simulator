@@ -7,6 +7,7 @@ n:
     .globl   main
 main:
 # Assumption: factorial of any number <=1 is 1.
+    addi     sp, sp, 272
     la       a0, n
     lw       a0, 0(a0)   # a0 <- n (factorial input)
     jal      ra, fact
