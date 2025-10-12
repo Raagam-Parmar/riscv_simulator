@@ -11,3 +11,4 @@ _*.*
 *.pyc
 *.trace
 *.log
+*.stats

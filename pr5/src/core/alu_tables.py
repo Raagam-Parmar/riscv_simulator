@@ -71,7 +71,7 @@ operands_tbl : Dict[OpCode, OperandFunc] = {
     Branch_ops.BGEU: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),
     
     # Upper-Immediate instruction
-    Upper_ops.LUI: lambda v_rs1, v_rs2, v_imm, v_pc: (0, v_imm << 12), # NOTE: Modified
+    Upper_ops.LUI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_imm, 12), # NOTE: Modified
     Upper_ops.AUIPC: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),
 
     # Jump instruction
