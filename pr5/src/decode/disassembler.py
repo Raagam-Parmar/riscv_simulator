@@ -1,33 +1,38 @@
 from typing import Dict, Callable, Optional
 
-from utils.bits import signed_max
-from core.typs import inst32
-from isa.types import *
+# from utils.bits import signed_max
 from isa.enums import *
+from isa.formats import *
 from isa.tables import *
 from .fields import *
 
 
 class InvalidInstruction(Exception):
-    def __init__(self, inst: inst32):
+    def __init__(self, inst: int):
         self.message = f"Invalid Instruction: {hex(inst)} , {bin(inst)}"
         super().__init__(self.message)
 
 
-def sign_wrap(value: int, width: int) -> int:
-    if value < 0:
-        raise ValueError("sign_wrap: Value can not be negative.", value)
+# def sign_wrap(value: int, width: int) -> int:
+#     if value < 0:
+#         raise ValueError("sign_wrap: Value can not be negative.", value)
 
-    if value > signed_max(width):
-        return value - 2**width
+#     if value > signed_max(width):
+#         return value - 2**width
 
-    return value
+#     return value
+
+def sign_wrap(x: int, width: int) -> int:
+    mask = (1 << width) - 1
+    x &= mask
+    sign = 1 << (width - 1)
+    return (x ^ sign) - sign
 
 
 # ---------------------------------------------------------------------------- #
 # Load Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_load(inst: inst32) -> Optional[Instruction]:
+def disassemble_load(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
 
     if fun3 not in load_tbl:
@@ -43,7 +48,7 @@ def disassemble_load(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Store Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_store(inst: inst32) -> Optional[Instruction]:
+def disassemble_store(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
 
     if fun3 not in store_tbl:
@@ -63,7 +68,7 @@ def disassemble_store(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Branch Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_branch(inst: inst32) -> Optional[Instruction]:
+def disassemble_branch(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
 
     if fun3 not in branch_tbl:
@@ -85,7 +90,7 @@ def disassemble_branch(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # JALR
 # ---------------------------------------------------------------------------- #
-def disassemble_jalr(inst: inst32) -> Optional[Instruction]:
+def disassemble_jalr(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
 
     if fun3 != 0b000:
@@ -101,7 +106,7 @@ def disassemble_jalr(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Misc Memory Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_misc_mem(inst: inst32) -> Optional[Instruction]:
+def disassemble_misc_mem(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
 
     const = mm_const_field.extract(inst)
@@ -123,7 +128,7 @@ def disassemble_misc_mem(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Atomic Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_amo(inst: inst32) -> Optional[Instruction]:
+def disassemble_amo(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
 
     if fun3 != 0b010:
@@ -150,7 +155,7 @@ def disassemble_amo(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # JAL
 # ---------------------------------------------------------------------------- #
-def disassemble_jal(inst: inst32) -> Optional[Instruction]:
+def disassemble_jal(inst: int) -> Optional[Instruction]:
     rd = rd_field.extract(inst)
     imm20 = j_imm_20_field.extract(inst)
     imm10_1 = j_imm_10_1_field.extract(inst)
@@ -166,7 +171,7 @@ def disassemble_jal(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Imm Op Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_op_imm(inst: inst32) -> Optional[Instruction]:
+def disassemble_op_imm(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
     rd = rd_field.extract(inst)
     rs1 = rs1_field.extract(inst)
@@ -185,7 +190,7 @@ def disassemble_op_imm(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Reg Op Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_op(inst: inst32) -> Optional[Instruction]:
+def disassemble_op(inst: int) -> Optional[Instruction]:
     fun3 = funct3_field.extract(inst)
     fun7 = fun7_field.extract(inst)
 
@@ -204,7 +209,7 @@ def disassemble_op(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Zicsr Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_zicsr(inst: inst32, fun3: funct3) -> Optional[Instruction]:
+def disassemble_zicsr(inst: int, fun3: funct3) -> Optional[Instruction]:
     rs1 = rs1_field.extract(inst)
     csr = csr_field.extract(inst)
     rd = rd_field.extract(inst)
@@ -215,7 +220,7 @@ def disassemble_zicsr(inst: inst32, fun3: funct3) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Zicsr Immediate Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
+def disassemble_zicsr_imm(inst: int, fun3: funct3) -> Optional[Instruction]:
     imm = csr_uimm_field.extract(inst)
     csr = csr_field.extract(inst)
     rd = rd_field.extract(inst)
@@ -226,7 +231,7 @@ def disassemble_zicsr_imm(inst: inst32, fun3: funct3) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # System Instruction
 # ---------------------------------------------------------------------------- #
-def disassemble_system(inst: inst32) -> Optional[Instruction]:
+def disassemble_system(inst: int) -> Optional[Instruction]:
     sys_const = sys_const_field.extract(inst)
 
     if sys_const in system_tbl:
@@ -246,7 +251,7 @@ def disassemble_system(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # AUIPC
 # ---------------------------------------------------------------------------- #
-def disassemble_auipc(inst: inst32) -> Optional[Instruction]:
+def disassemble_auipc(inst: int) -> Optional[Instruction]:
     rd = rd_field.extract(inst)
     imm = u_imm_field.extract(inst)
 
@@ -256,7 +261,7 @@ def disassemble_auipc(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # LUI
 # ---------------------------------------------------------------------------- #
-def disassemble_lui(inst: inst32) -> Optional[Instruction]:
+def disassemble_lui(inst: int) -> Optional[Instruction]:
     rd = rd_field.extract(inst)
     imm = u_imm_field.extract(inst)
 
@@ -266,7 +271,7 @@ def disassemble_lui(inst: inst32) -> Optional[Instruction]:
 # ---------------------------------------------------------------------------- #
 # Opcode Map
 # ---------------------------------------------------------------------------- #
-opcode_tbl: Dict[int, Callable[[inst32], Optional[Instruction]]] = {
+opcode_tbl: Dict[int, Callable[[int], Optional[Instruction]]] = {
     0b0000011: disassemble_load,
     0b0100011: disassemble_store,
     0b1100011: disassemble_branch,
@@ -285,10 +290,24 @@ opcode_tbl: Dict[int, Callable[[inst32], Optional[Instruction]]] = {
 # ---------------------------------------------------------------------------- #
 # Disassembler
 # ---------------------------------------------------------------------------- #
-def dis(inst: inst32) -> Optional[Instruction]:
+def disassemble(inst: int) -> Optional[Instruction]:
     opcode = opcode_field.extract(inst)
 
     if opcode not in opcode_tbl:
         return None
 
     return opcode_tbl[opcode](inst)
+
+
+def disassemble_error(inst: int) -> Instruction:
+    opcode = opcode_field.extract(inst)
+
+    if opcode not in opcode_tbl:
+        raise InvalidInstruction(inst)
+
+    maybe_inst = opcode_tbl[opcode](inst)
+    
+    if not maybe_inst:
+        raise InvalidInstruction(inst)
+    
+    return maybe_inst
