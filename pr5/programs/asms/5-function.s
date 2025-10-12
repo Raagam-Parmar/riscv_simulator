@@ -49,6 +49,8 @@ main:
 # element Aij is located at a+3i+j (word addressed i and j)
 # or a+4(3i+j) (for byte addressed i and j)
 
+	add      sp, sp, 272
+	
 	la       a0, a                 # a0 = &a[0]
 	la       a1, b                 # a1 = &b[0]
 	la       a2, c                 # a2 = &c[0]
