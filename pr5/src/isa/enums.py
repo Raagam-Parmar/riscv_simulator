@@ -17,6 +17,7 @@
 
 # ---------------------------------------------------------------------------- #
 
+from typing import Union
 from enum import Enum, auto
 
 
@@ -177,3 +178,19 @@ class Zicsr_imm_ops(Enum):
 
     def __str__(self):
         return self.name.lower()
+
+
+OpCode = Union[
+    Reg_ops,
+    Imm_ops,
+    Load_ops,
+    Store_ops,
+    Branch_ops,
+    Upper_ops,
+    Jump_ops,
+    Misc_mem_ops,
+    Atomic_ops,
+    System_ops,
+    Zicsr_ops,
+    Zicsr_imm_ops,
+]
