@@ -23,7 +23,7 @@ class SingleCycleProcessor(Processor):
             l3 = self.execute(l2)
             l4 = self.mem_access(l3)
             self.update_pc(l3)
-            self.reg_write(l4)
+            self.writeback(l4)
             
             i_cnt += 1
 
