@@ -1,4 +1,7 @@
+from typing import Dict, Callable, Tuple, Optional
+
 from .fu import *
+from isa.formats import *
 
 def is_branch(instr :int):
     masked_inst = (instr & 0xFF000) >> 12
@@ -14,6 +17,13 @@ def is_jump(instr : int):
     else:
         return False
 
+
+# opcode : [ - 8 - ]
+# fun3: [ - 4 - ]
+# fun7: [ - 8 - ]
+# 0ooooooo 0333 07777777
+# 0ooo
+# 0111
 def is_unimplemented(instr : int):
     masked_inst = (instr & 0xF0000) >> 16
     if masked_inst == 0x7:
@@ -86,7 +96,12 @@ alu_function = {
     0x73001: e_nop      # "ebreak"
 }
 
-alu_operands = {
+OpFunc = Callable[
+    [int, int, int, int],
+    Tuple[Optional[int], Optional[int]]
+]
+
+alu_operands : Dict[int, OpFunc] = {
     0x33000: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),               # "add"
     0x33020: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, -1 * v_rs2),          # "sub"
     0x33400: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),               # "xor"
@@ -97,7 +112,7 @@ alu_operands = {
     0x33520: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),               # "sra"
     0x33200: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),               # "slt"
     0x33300: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),  # "sltu"
-    0x13000: lambda v_rs1, v_rs2, v_imm, v_pc: (None, None),                  # "addi"  # TODO: Fix this entry (without changing fu.py)
+    0x13000: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "addi" # DONE # TODO: Fix this entry (without changing fu.py)
     0x13400: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "xori"
     0x13600: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "ori"
     0x13700: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "andi"
@@ -114,7 +129,7 @@ alu_operands = {
     0x33501: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),  # "divu"
     0x33601: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),               # "rem"
     0x33701: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),  # "remu"
-    0x37000: lambda v_rs1, v_rs2, v_imm, v_pc: (None, None),                 # "lui"     # TODO: Fix this entry (without changing fu.py)
+    0x37000: lambda v_rs1, v_rs2, v_imm, v_pc: (0, v_imm << 12),                 # "lui"   # DONE  # TODO: Fix this entry (without changing fu.py)
     0x03000: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "lb"
     0x03100: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "lh"
     0x03200: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),               # "lw"
@@ -129,8 +144,8 @@ alu_operands = {
     0x63500: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),               # "bge"
     0x63600: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),  # "bltu"
     0x63700: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),  # "bgeu"
-    0x6F000: lambda v_rs1, v_rs2, v_imm, v_pc: (None, None),                    # "jal"     # TODO: Fix this entry (without changing fu.py)
-    0x67000: lambda v_rs1, v_rs2, v_imm, v_pc: (None, None),                    # "jalr"    # TODO: Fix this entry (without changing fu.py)
+    0x6F000: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),                    # "jal"     # TODO: Fix this entry (without changing fu.py)
+    0x67000: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),                    # "jalr"    # TODO: Fix this entry (without changing fu.py)
     0x17000: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc,  v_imm),               # "auipc"
     0x73000: lambda v_rs1, v_rs2, v_imm, v_pc: (None, None),                 # "ecall"      # NOTE: Unimplemented
     0x73001: lambda v_rs1, v_rs2, v_imm, v_pc: (None, None),                 # "ebreak"     # NOTE: Unimplemented
