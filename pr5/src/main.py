@@ -2,7 +2,7 @@ import sys
 
 from ram import RAM
 from utils.constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
-from decode.disassembler import dis
+from decode.disassembler import disassemble
 from utils.pretty import pp_word
 import logger
 
@@ -42,7 +42,7 @@ for addr in range(0x80000000, 0x80008000, 4):
     if inst == 0:
         continue    
     
-    diss = dis(inst)
+    diss = disassemble(inst)
     pp_inst = pp_word(inst, BYTE_WIDTH, delimit='')
     
     if diss:

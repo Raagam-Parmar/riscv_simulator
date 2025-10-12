@@ -1,16 +1,22 @@
-import struct
+from pathlib import Path
+from typing import Union
 
-def load(ram, r5ob_path, start=0x80000000):
-    """
-    Load binary file into memory.
-    returns a memory (dictionary).
-    """
-    mem = {}
+import ram
 
-    with open(r5ob_path, 'rb') as f:
-        offset = start
+
+def load(ram: ram.RAM, r5ob_path: Union[str, Path], start: int) -> int:
+    """Load int `ram` the contents of `r5ob` binary at path `r5ob_path`,
+    starting at `start` address.
+
+    Returns:
+        int: Number of bytes written to the ram
+    """
+
+    offset = start
+
+    with open(r5ob_path, "rb") as f:
         while byte := f.read(1):
-            ram.write(offset, byte[0])
+            ram.write_byte(offset, byte[0])
             offset += 1
 
-    return mem
+    return offset

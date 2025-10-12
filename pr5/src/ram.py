@@ -53,8 +53,20 @@ class RAM:
         if not (0 <= address <= addr_max):
             raise AddressOutOfRange(address, addr_max)
 
+    def _check_halfword_addr(self, address: int) -> None:
+        if address & 0b1:
+            raise AddressMisaligned(address, 2)
+
+        addr_max = self.depth - 2
+        if not (0 <= address <= addr_max):
+            raise AddressOutOfRange(address, addr_max)
+
+
     def _verify_data(self, data: int, width: int) -> None:
         bits.verifyUnsigned(data, width)
+        
+# ---------------------------------------------------------------------------- #
+# Functions for reading and writing bytes
 
     def read_byte(self, address: int) -> int:
         self._check_byte_addr(address)
@@ -68,6 +80,33 @@ class RAM:
             self.data.pop(address, None)
         else:
             self.data[address] = data
+
+# ---------------------------------------------------------------------------- #
+# Functions for reading and writing halfwords (2 bytes)
+
+    def read_halfword(self, address: int) -> int:
+        self._check_halfword_addr(address)
+
+        data: int = 0
+
+        for i in range(2):
+            byte = self.read_byte(address + i) & self.BYTE_MASK
+            data |= byte << (i * self.width)
+
+        return data
+
+    def write_halfword(self, address: int, data: int) -> None:
+        self._check_halfword_addr(address)
+        self._verify_data(data, self.width * 2)
+
+        mask = bits.unsigned_max(self.width)
+
+        for i in range(2):
+            byte = (data >> (i * self.width)) & mask
+            self.write_byte(address + i, byte)
+
+# ---------------------------------------------------------------------------- #
+# Functions for reading and writing word (4 bytes)
 
     def read_word(self, address: int) -> int:
         self._check_word_addr(address)
@@ -89,6 +128,9 @@ class RAM:
         for i in range(4):
             byte = (data >> (i * self.width)) & mask
             self.write_byte(address + i, byte)
+            
+# ---------------------------------------------------------------------------- #
+    
 
     def clear(self) -> None:
         """Clear RAM to all zeroes."""

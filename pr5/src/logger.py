@@ -1,23 +1,34 @@
 import logging
 
-# custom log level 'OUT' which will be used to print the instruction sequence
-OUT_LEVEL = 25
+from utils.constants import OUT_LEVEL
+
 logging.addLevelName(OUT_LEVEL, "OUT")
 
-def log_out(self, message, *args, **kwargs):
-    if self.isEnabledFor(OUT_LEVEL):
-        self._log(OUT_LEVEL, message, args, **kwargs)
+# ### down
+# def log_out(self, message: str, *args, **kwargs):
+#     if self.isEnabledFor(OUT_LEVEL):
+#         self._log(OUT_LEVEL, message, args, **kwargs)
 
-logging.Logger.out = log_out
+# logging.Logger.out = log_out
+# ### up
+
+class PR5Logger(logging.Logger):
+    def out(self, message: str, *args, **kwargs) -> None:
+        if self.isEnabledFor(OUT_LEVEL):
+            self._log(OUT_LEVEL, message, args, **kwargs)
+
+# Set as default logger class for new loggers
+logging.setLoggerClass(PR5Logger)
 
 
-def setup():
+def setup() -> PR5Logger:
     logger = logging.getLogger("pr5")
     logger.setLevel(logging.DEBUG)
     
     # logging to the console
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
+    # console_handler.setLevel(logging.DEBUG)
     
     # logging to a file
     file_handler = logging.FileHandler("sim.log", mode='w')
