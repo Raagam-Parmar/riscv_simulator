@@ -10,7 +10,7 @@
 PR5="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 
 cd "${PR5}"/tests/
-for test in 1-even 2-prime 3-descending 4-histogram 5-function temp1 temp2;
+for test in 1-even 2-prime 3-descending 4-histogram 5-function temp1 temp2 sample-0 sample-1 sample-2 sample-3 sample-4;
 do
 	start="80002000"
 	python3 "${PR5}"/src/simulate.py --start=${start} "${PR5}"/programs/bins/asms/${test}.r5ob --num_insts=100 &> /dev/null
