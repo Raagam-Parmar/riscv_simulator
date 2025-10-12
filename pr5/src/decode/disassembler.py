@@ -1,6 +1,6 @@
 from typing import Dict, Callable, Optional
 
-# from utils.bits import signed_max
+from utils.bits import sign_extend
 from isa.enums import *
 from isa.formats import *
 from isa.tables import *
@@ -22,12 +22,6 @@ class InvalidInstruction(Exception):
 
 #     return value
 
-def sign_wrap(x: int, width: int) -> int:
-    mask = (1 << width) - 1
-    x &= mask
-    sign = 1 << (width - 1)
-    return (x ^ sign) - sign
-
 
 # ---------------------------------------------------------------------------- #
 # Load Instruction
@@ -40,7 +34,7 @@ def disassemble_load(inst: int) -> Optional[Instruction]:
 
     rd = rd_field.extract(inst)
     rs1 = rs1_field.extract(inst)
-    imm = sign_wrap(i_imm_field.extract(inst), i_imm_width)
+    imm = sign_extend(i_imm_field.extract(inst), i_imm_width)
 
     return Load(load_tbl[fun3], rd, rs1, imm)
 
@@ -60,7 +54,7 @@ def disassemble_store(inst: int) -> Optional[Instruction]:
     imm11_5 = s_imm_high_field.extract(inst)
 
     imm = imm11_5 << 5 | imm4_0
-    imm = sign_wrap(imm, s_imm_width)
+    imm = sign_extend(imm, s_imm_width)
 
     return Store(store_tbl[fun3], rs1, rs2, imm)
 
@@ -82,7 +76,7 @@ def disassemble_branch(inst: int) -> Optional[Instruction]:
     imm4_1 = b_immm_4_1_field.extract(inst)
 
     imm = imm12 << 12 | imm11 << 11 | imm10_5 << 5 | imm4_1 << 1
-    imm = sign_wrap(imm, b_imm_width)
+    imm = sign_extend(imm, b_imm_width)
 
     return Branch(branch_tbl[fun3], rs1, rs2, imm)
 
@@ -98,7 +92,7 @@ def disassemble_jalr(inst: int) -> Optional[Instruction]:
 
     rd = rd_field.extract(inst)
     rs1 = rs1_field.extract(inst)
-    imm = sign_wrap(i_imm_field.extract(inst), i_imm_width)
+    imm = sign_extend(i_imm_field.extract(inst), i_imm_width)
 
     return Imm(Imm_ops.JALR, rd, rs1, imm)
 
@@ -163,7 +157,7 @@ def disassemble_jal(inst: int) -> Optional[Instruction]:
     imm19_12 = j_imm_19_field.extract(inst)
 
     imm = imm20 << 20 | imm19_12 << 12 | imm11 << 11 | imm10_1 << 1
-    imm = sign_wrap(imm, j_imm_width)
+    imm = sign_extend(imm, j_imm_width)
 
     return Jump(Jump_ops.JAL, rd, imm)
 
@@ -176,15 +170,22 @@ def disassemble_op_imm(inst: int) -> Optional[Instruction]:
     rd = rd_field.extract(inst)
     rs1 = rs1_field.extract(inst)
     fun7 = fun7_field.extract(inst)
-    imm = sign_wrap(i_imm_field.extract(inst), i_imm_width)
+    imm = sign_extend(i_imm_field.extract(inst), i_imm_width)
+    
+    # TODO Fix constraints for SRAI, SLLI, SRLI
 
     if fun3 in op_imm_f3_tbl:
         return Imm(op_imm_f3_tbl[fun3], rd, rs1, imm)
 
     if (fun3, fun7) not in op_imm_f3_f7_tbl:
         return None
+    
+    opcode = op_imm_f3_f7_tbl[(fun3, fun7)]
 
-    return Imm(op_imm_f3_f7_tbl[(fun3, fun7)], rd, rs1, imm)
+    if opcode is Imm_ops.SLLI or opcode is Imm_ops.SRLI or opcode is Imm_ops.SRAI:
+        return Imm(op_imm_f3_f7_tbl[(fun3, fun7)], rd, rs1, imm & 0b11111)
+
+    return Imm(opcode, rd, rs1, imm)
 
 
 # ---------------------------------------------------------------------------- #

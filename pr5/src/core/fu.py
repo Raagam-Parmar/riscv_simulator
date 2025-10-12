@@ -1,4 +1,6 @@
 from typing import Callable
+from utils.bits import sign_extend
+from utils.constants import XWIDTH
 
 
 ExecFunc = Callable[[int, int], int]
@@ -18,13 +20,13 @@ e_sll: ExecFunc = lambda op1, op2: op1 << op2  # NOTE: lui uses the same unit
 e_srl: ExecFunc = lambda op1, op2: op1 >> op2
 e_sra: ExecFunc = lambda op1, op2: (op1 + (1 << 64)) >> op2 if op1 < 0 else op1 >> op2 # TODO
 e_slt: ExecFunc = lambda op1, op2: 1 if op1 < op2 else 0
-e_mul: ExecFunc = lambda op1, op2: op1 * op2
+e_mul: ExecFunc = lambda op1, op2: sign_extend(op1 * op2, XWIDTH)
 e_mulh: ExecFunc = lambda op1, op2: (op1 * op2) >> 32
 e_div: ExecFunc = lambda op1, op2: op1 // op2
 e_rem: ExecFunc = lambda op1, op2: op1 % op2
 
 # AUIPC
-e_auipc: ExecFunc = lambda op1, op2: op1 + ((op2 & 0xFFF) << 12)
+e_auipc: ExecFunc = lambda op1, op2: op1 + (op2 << 12)
 
 # AGU
 e_agu: ExecFunc = lambda op1, op2: op1 + op2

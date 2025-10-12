@@ -27,16 +27,16 @@ operands_tbl : Dict[OpCode, OperandFunc] = {
     Reg_ops.SRL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
     Reg_ops.SRA: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
     Reg_ops.SLT: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_ops.SLTU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),
+    Reg_ops.SLTU: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),
     
     Reg_ops.MUL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
     Reg_ops.MULH: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
     Reg_ops.MULHSU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),
     Reg_ops.MULHU: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),
     Reg_ops.DIV: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_ops.DIVU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),
+    Reg_ops.DIVU: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),
     Reg_ops.REM: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_ops.REMU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_rs2)),
+    Reg_ops.REMU: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_rs2)),
     
     # Imm instruction
     Imm_ops.ADDI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
@@ -47,15 +47,15 @@ operands_tbl : Dict[OpCode, OperandFunc] = {
     Imm_ops.SRLI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     Imm_ops.SRAI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     Imm_ops.SLTI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Imm_ops.SLTIU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_imm)),
+    Imm_ops.SLTIU: lambda v_rs1, v_rs2, v_imm, v_pc: (to_unsigned(v_rs1), to_unsigned(v_imm)),
     Imm_ops.JALR: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm), # NOTE: Modified
     
     # Load instruction
     Load_ops.LB: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     Load_ops.LH: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     Load_ops.LW: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Load_ops.LBU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_imm)),
-    Load_ops.LHU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, to_unsigned(v_imm)),
+    Load_ops.LBU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
+    Load_ops.LHU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     
     # Store instruction
     Store_ops.SB: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),

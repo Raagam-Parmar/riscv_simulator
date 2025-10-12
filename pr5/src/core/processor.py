@@ -15,6 +15,7 @@ from .reg import *
 from .pc import *
 from decode.fields import *
 from .alu_tables import *
+from utils.bits import sign_extend
 
 
 @dataclass
@@ -162,10 +163,14 @@ class Processor(ABC):
         # Handle load instructions
         if isinstance(op, Load_ops):
             match op:
-                case Load_ops.LB | Load_ops.LBU:
+                case Load_ops.LBU:
                     loaded_data = self.mem.read_byte(addr)
-                case Load_ops.LH | Load_ops.LHU:
+                case Load_ops.LB:
+                    loaded_data = sign_extend(self.mem.read_byte(addr), XWIDTH // 4)
+                case Load_ops.LHU:
                     loaded_data = self.mem.read_halfword(addr)
+                case Load_ops.LH:
+                    loaded_data = sign_extend(self.mem.read_halfword(addr), XWIDTH // 2)
                 case Load_ops.LW:
                     loaded_data = self.mem.read_word(addr)
 
