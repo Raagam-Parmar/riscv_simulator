@@ -1,11 +1,12 @@
 from ram import RAM
 from .processor import Processor
 from logger import PR5Logger
-
+from stats import Statistics
 
 class SingleCycleProcessor(Processor):
-    def __init__(self, start: int, ram: RAM, logger: PR5Logger):
+    def __init__(self, start: int, ram: RAM, logger: PR5Logger, stat: Statistics):
         super().__init__(start, ram, logger)
+        self.stats = stat
 
     def run(self, num_insts: int) -> None:
         """
@@ -15,10 +16,6 @@ class SingleCycleProcessor(Processor):
         i_cnt = 0
         while i_cnt < num_insts:
             l1 = self.fetch()
-
-            # if instruction is None:
-            #     break
-
             l2 = self.decode(l1)
             l3 = self.execute(l2)
             l4 = self.mem_access(l3)
@@ -26,5 +23,7 @@ class SingleCycleProcessor(Processor):
             self.writeback(l4)
             
             i_cnt += 1
+            
+            self.stats.increment_instruction_count()
 
         self.logr.info(f"Simulated {i_cnt} instructions")
