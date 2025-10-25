@@ -16,17 +16,43 @@ from utils.bits import sign_extend
 
 @dataclass
 class PC_IF_Latch:
+    """
+    Program Counter/Fetch Latch
+
+    Holds:
+    - Program counter
+    """
     pc: int
 
 
 @dataclass
 class IF_ID_Latch:
+    """
+    Fetch/Decode Latch
+
+    Holds:
+    - Program counter
+    - Fetched instruction
+    """
     inst: int
     pc: int
 
 
 @dataclass(frozen=True)
 class ID_EX_Latch:
+    """
+    Decode/Execute Latch
+
+    Holds:
+    - Decoded instruction fields
+        - opcode
+        - rs1
+        - rs2
+        - rd
+        - imm
+    - Fetched operands
+    - Program counter
+    """
     op: OpCode
     rs1: Optional[int]
     rs2: Optional[int]
@@ -41,6 +67,19 @@ class ID_EX_Latch:
 
 @dataclass(frozen=True)
 class EX_MEM_Latch:
+    """
+    Execute/Memory Access Latch
+
+    Holds:
+    - Decoded instruction
+        - opcode
+        - rs1
+        - rs2
+        - rd
+        - imm
+    - ALU Result
+    - Program counter
+    """
     op: OpCode
     rs1: Optional[int]
     rs2: Optional[int]
@@ -53,6 +92,18 @@ class EX_MEM_Latch:
 
 @dataclass(frozen=True)
 class MEM_WB_Latch:
+    """
+    Memory Access/Writeback stage
+
+    Holds:
+    - Decoded instruction
+        - opcode
+        - rs2
+        - rd
+    - ALU Result
+    - Load-data (for Load instruction)
+    - Program counter
+    """
     op: OpCode
     # rs1: Optional[int]
     rs2: Optional[int]
@@ -66,18 +117,33 @@ class MEM_WB_Latch:
 
 class Processor(ABC):
     def __init__(self, init_pc: int, ram: RAM, logger: PR5Logger) -> None:
+        """
+        Creates a new processor.
+
+        :param init_pc: Initial program counter
+        :param ram: Instruction and data memory
+        :param logger: CPU events logger
+        """
         self.init_pc = init_pc
         self.regfile = RegisterFile(XWIDTH, zero_reg=True)
         self.mem = ram
         self.logr = logger
 
     def initialise_pc(self):
+        """
+        Initialize the program counter with its initial value.
+        """
         return PC_IF_Latch(self.init_pc)
 
     def fetch(self, pc_if_latch: PC_IF_Latch) -> IF_ID_Latch:
         """
-        Fetch the instruction from memory, and update PC
-        returns instruction
+        Fetch the instruction in the latch.
+
+        :param pc_if_latch: Latch containing program counter
+
+        :returns: Latch containing fetched instruction and program counter
+
+        :raises ValueError: If the fetch is unsuccessful
         """
         pc = pc_if_latch.pc
 
@@ -91,6 +157,16 @@ class Processor(ABC):
             exit()
 
     def decode(self, if_id_latch: IF_ID_Latch) -> ID_EX_Latch:
+        """
+        Decode the instruction and fetch the required operands.
+
+        :param if_id_latch: Latch containing fetched instruction and program
+        counter
+
+        :returns: Latch containing decoded instructions, fetched operands and pc
+
+        :raises NotImplementedError: If instruction is unimplemented
+        """
         dis = disassemble_error(if_id_latch.inst)
 
         self.logr.debug(dis)
@@ -129,9 +205,12 @@ class Processor(ABC):
 
     def execute(self, id_ex_latch: ID_EX_Latch) -> EX_MEM_Latch:
         """
-        Execute the instruction
-        decoded_instr, operand1 and operand2 are returned by previous stages
-        returns the result of the operation
+        Execute the instruction.
+
+        :param id_ex_latch: Latch containing decoded instructions, fetched
+        operands and pc
+
+        :returns: Latch containing decoded instruction, execution result and pc
         """
         op1 = id_ex_latch.op1
         op2 = id_ex_latch.op2
@@ -152,7 +231,12 @@ class Processor(ABC):
 
     def update_pc(self, ex_mem_latch: EX_MEM_Latch) -> PC_IF_Latch:
         """
-        Update PC to take a branch or jump
+        Update the program counter to either branch/jump or take PC + 4.
+
+        :param ex_mem_latch: Latch containing decoded instruction, execution
+        result and pc
+
+        :returns: Latch containing the new program counter value
         """
         op = ex_mem_latch.op
         result = ex_mem_latch.result
@@ -182,7 +266,13 @@ class Processor(ABC):
 
     def mem_access(self, ex_mem_latch: EX_MEM_Latch) -> MEM_WB_Latch:
         """
-        Access memory based on the instruction.
+        Perform memory access for the instruction.
+
+        :param ex_mem_latch: Latch containing decoded instruction, execution
+        result and pc
+
+        :returns: Latch containing decoded instruction, execution result, pc and
+        loaded data for writeback
         """
         op = ex_mem_latch.op
         addr = ex_mem_latch.result
@@ -246,6 +336,10 @@ class Processor(ABC):
     def writeback(self, mem_wb_latch: MEM_WB_Latch, pc_if_latch: PC_IF_Latch) -> None:
         """
         Write the result of the operation back to the register.
+
+        :param mem_wb_latch: Latch containing decoded instruction, execution
+        result, pc and loaded data for writeback
+        :param pc_if_latch: Latch containing the new program counter value
         """
         # NOTE: CAUTION - Changing the outputs here will violate test cases
         result = mem_wb_latch.result
@@ -331,5 +425,7 @@ class Processor(ABC):
 
     @abstractmethod
     def run(self, num_insts: int):
-        """Run the processor. To be implemented by subclasses."""
+        """
+        Run the processor. To be implemented by subclasses.
+        """
         pass
