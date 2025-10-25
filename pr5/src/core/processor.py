@@ -27,22 +27,38 @@ class IF_ID_Latch:
 
 @dataclass(frozen=True)
 class ID_EX_Latch:
-    decoded: UnifiedInstruction
+    op: OpCode
+    rs1: Optional[int]
+    rs2: Optional[int]
+    rd: Optional[int]
+    imm: Optional[int]
+
     op1: int
     op2: int
+
     pc: int
 
 
 @dataclass(frozen=True)
 class EX_MEM_Latch:
-    decoded: UnifiedInstruction
+    op: OpCode
+    rs1: Optional[int]
+    rs2: Optional[int]
+    rd: Optional[int]
+    imm: Optional[int]
+
     pc: int
     result: int
 
 
 @dataclass(frozen=True)
 class MEM_WB_Latch:
-    decoded: UnifiedInstruction
+    op: OpCode
+    # rs1: Optional[int]
+    rs2: Optional[int]
+    rd: Optional[int]
+    # imm: Optional[int]
+
     result: int
     loaded_data: Optional[int]
     pc: int
@@ -83,6 +99,7 @@ class Processor(ABC):
 
         rs1 = decoded.rs1
         rs2 = decoded.rs2
+        rd = decoded.rd
         v_imm = decoded.imm if decoded.imm else 0
         op = decoded.op
 
@@ -92,26 +109,23 @@ class Processor(ABC):
         self.logr.debug(f"rs1 = {rs1}, rs2 = {rs2}, imm = {hex(v_imm)}, op = {op}")
         v_pc = if_id_latch.pc
 
-        # op1, op2 = operands_tbl.get(opcode, (None, None))(
-        #     v_rs1, v_rs2, v_imm, v_pc
-        # )
-
         try:
             op1, op2 = operands_tbl[op](v_rs1, v_rs2, v_imm, v_pc)
         except KeyError:
             raise NotImplementedError(f"Op not implemented in operands_tbl: {op}")
 
-        # # NOTE: Modified
-        # if op1 >= 0x80000000:
-        #     op1 = op1 - (1 << 32)
-
-        # # NOTE: Modified
-        # if op2 >= 0x80000000 :
-        #     op2 = op2 - (1 << 32)
-
         self.logr.debug(f"op1: {op1}, op2: {op2}")
 
-        return ID_EX_Latch(decoded=decoded, op1=op1, op2=op2, pc=if_id_latch.pc)
+        return ID_EX_Latch(
+            op=op,
+            rs1=rs1,
+            rs2=rs2,
+            rd=rd,
+            imm=v_imm,
+            op1=op1,
+            op2=op2,
+            pc=if_id_latch.pc,
+        )
 
     def execute(self, id_ex_latch: ID_EX_Latch) -> EX_MEM_Latch:
         """
@@ -119,27 +133,30 @@ class Processor(ABC):
         decoded_instr, operand1 and operand2 are returned by previous stages
         returns the result of the operation
         """
-        # TODO: alu_function is incomplete. Complete it (without modifying fu.py)
-        # NOTE: Modified
-
-        decoded = id_ex_latch.decoded
         op1 = id_ex_latch.op1
         op2 = id_ex_latch.op2
+        op = id_ex_latch.op
 
-        result = function_tbl[decoded.op](op1, op2)
-        self.logr.debug(f"Result of {decoded.op} is: {result}")
+        result = function_tbl[op](op1, op2)
+        self.logr.debug(f"Result of {op} is: {result}")
 
-        return EX_MEM_Latch(decoded=decoded, result=result, pc=id_ex_latch.pc)
+        return EX_MEM_Latch(
+            op=op,
+            rs1=id_ex_latch.rs1,
+            rs2=id_ex_latch.rs2,
+            rd=id_ex_latch.rd,
+            imm=id_ex_latch.imm,
+            result=result,
+            pc=id_ex_latch.pc,
+        )
 
     def update_pc(self, ex_mem_latch: EX_MEM_Latch) -> PC_IF_Latch:
         """
         Update PC to take a branch or jump
         """
-        # NOTE: Modified
-        decoded = ex_mem_latch.decoded
-        op = decoded.op
+        op = ex_mem_latch.op
         result = ex_mem_latch.result
-        imm = decoded.imm if decoded.imm else 0
+        imm = ex_mem_latch.imm if ex_mem_latch.imm else 0
         pc = ex_mem_latch.pc
 
         self.logr.debug(isinstance(op, Branch_ops))
@@ -167,8 +184,7 @@ class Processor(ABC):
         """
         Access memory based on the instruction.
         """
-        decoded = ex_mem_latch.decoded
-        op = decoded.op
+        op = ex_mem_latch.op
         addr = ex_mem_latch.result
 
         loaded_data = 0
@@ -188,7 +204,9 @@ class Processor(ABC):
                     loaded_data = self.mem.read_word(addr)
 
             return MEM_WB_Latch(
-                decoded=decoded,
+                op=op,
+                rs2=ex_mem_latch.rs2,
+                rd=ex_mem_latch.rd,
                 result=ex_mem_latch.result,
                 loaded_data=loaded_data,
                 pc=ex_mem_latch.pc,
@@ -196,7 +214,7 @@ class Processor(ABC):
 
         # Handle store instructions
         if isinstance(op, Store_ops):
-            rs2 = decoded.rs2 if decoded.rs2 else 0
+            rs2 = ex_mem_latch.rs2 if ex_mem_latch.rs2 else 0
             data = self.regfile.read(rs2)
 
             match op:
@@ -208,14 +226,18 @@ class Processor(ABC):
                     self.mem.write_word(addr, data)
 
             return MEM_WB_Latch(
-                decoded=decoded,
+                op=op,
+                rs2=ex_mem_latch.rs2,
+                rd=ex_mem_latch.rd,
                 result=ex_mem_latch.result,
                 loaded_data=None,
                 pc=ex_mem_latch.pc,
             )
 
         return MEM_WB_Latch(
-            decoded=decoded,
+            op=op,
+            rs2=ex_mem_latch.rs2,
+            rd=ex_mem_latch.rd,
             result=ex_mem_latch.result,
             loaded_data=None,
             pc=ex_mem_latch.pc,
@@ -226,10 +248,9 @@ class Processor(ABC):
         Write the result of the operation back to the register.
         """
         # NOTE: CAUTION - Changing the outputs here will violate test cases
-        decoded = mem_wb_latch.decoded
         result = mem_wb_latch.result
-        op = decoded.op
-        rd = decoded.rd if decoded.rd else 0
+        op = mem_wb_latch.op
+        rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
         pc = mem_wb_latch.pc
         next_pc = pc_if_latch.pc
 
@@ -276,9 +297,8 @@ class Processor(ABC):
             return
 
         if isinstance(op, Store_ops):
-            decoded = mem_wb_latch.decoded
             result = mem_wb_latch.result
-            rs2 = decoded.rs2
+            rs2 = mem_wb_latch.rs2
 
             data = self.regfile.read(rs2 if rs2 else 0)
 
@@ -300,7 +320,7 @@ class Processor(ABC):
         #     return
 
         # All other instructions
-        rd = decoded.rd if decoded.rd else 0
+        rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
         self.regfile.write(rd, result)
         self.logr.out(
             f"{pc:08x} | "
