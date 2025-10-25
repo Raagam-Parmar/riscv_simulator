@@ -22,7 +22,8 @@ class SingleCycleProcessor(Processor):
             ex_mem = self.execute(id_ex)
             mem_wb = self.mem_access(ex_mem)
             pc_if = self.update_pc(ex_mem)
-            self.writeback(mem_wb, pc_if)
+            self.writeback(mem_wb)
+            self.log_instruction(mem_wb, pc_if)
 
             i_cnt += 1
 
