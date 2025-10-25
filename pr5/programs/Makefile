@@ -3,14 +3,14 @@ RISCV=riscv-none-elf-
 RISCV_AS_FLAGS=-T./custom/test.ld -static -mcmodel=medany \
 	       -fvisibility=hidden -nostdlib -nostartfiles -g \
 	       ./custom/crt.S -I ./custom -march=rv32ima_zicsr \
-	       -mabi=ilp32 
+	       -mabi=ilp32
 
 RISCV_C_FLAGS=-T./custom/test.ld -static -mcmodel=medany \
 	       -fvisibility=hidden -nostdlib -nostartfiles -g -O0 \
 	       ./custom/syscalls.c ./custom/crt.S -lgcc \
 	       -I./custom/env -I./custom/common \
-	       -march=rv32imc_zba_zbb_zbs_zbc_zicsr_zifencei -mabi=ilp32 
-#	       -march=rv32ima_zicsr -mabi=ilp32 
+	       -march=rv32imc_zba_zbb_zbs_zbc_zicsr_zifencei -mabi=ilp32
+#	       -march=rv32ima_zicsr -mabi=ilp32
 
 ASMs    := $(wildcard asms/*.s)
 CSRCs   := $(wildcard c_tests/*.c)

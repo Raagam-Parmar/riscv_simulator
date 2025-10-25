@@ -22,3 +22,6 @@ _temps
 
 # Python cache
 **/__pycache__/****/__pycache__/**
+
+# Ignore flag on files
+_ignore*.*
