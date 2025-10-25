@@ -1,14 +1,24 @@
+# RISCV Tool Binaries
 **/riscv-tools/**
+
+# Build directories
 **/spike/**
 **/bins/**
 **/dumps/**
 **/runs/**
 **/dists/**
 
-_*.*
-
-**/__pycache__/****/__pycache__/**
+# Build files
 *.pyc
 *.trace
 *.log
 *.stats
+*.json
+
+# Temporary files
+_planning.md
+_pipeline_planning.md
+_temps
+
+# Python cache
+**/__pycache__/****/__pycache__/**

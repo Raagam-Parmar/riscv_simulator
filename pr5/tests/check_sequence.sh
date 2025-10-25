@@ -14,6 +14,8 @@ for test in 1-even 2-prime 3-descending 4-histogram 5-function 6-fact endless_lo
 do
 	start="80002000"
 	python3 "${PR5}"/src/simulate.py --start=${start} "${PR5}"/programs/bins/asms/${test}.r5ob --num_insts=100 &> /dev/null
+	# python3 "${PR5}"/src/simulate.py --start=${start} "${PR5}"/programs/bins/asms/${test}.r5ob --num_insts=100
+
 	grep 'OUT' sim.log | sed 's/\[OUT\]//' | sed 's/ //g' | cut -d '|' -f1 > ${test}.sim.trace
 	GOLD="${PR5}/programs/runs/asms/${test}.iss"
 	if [ ! -f "${GOLD}" ]; then

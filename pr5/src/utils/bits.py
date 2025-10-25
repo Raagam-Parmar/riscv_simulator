@@ -28,12 +28,12 @@ def signed_max(width: int) -> int:
     return (1 << (width - 1)) - 1
 
 
-# # General bit operations
-# def sign_extend(x: int, width: int) -> int:
-#     mask = (1 << width) - 1
-#     x &= mask
-#     sign = 1 << (width - 1)
-#     return (x ^ sign) - sign
+# General bit operations
+def sign_extend(x: int, width: int) -> int:
+    mask = (1 << width) - 1
+    x &= mask
+    sign = 1 << (width - 1)
+    return (x ^ sign) - sign
 
 
 # ---------------------------------------------------------------------------- #
@@ -101,11 +101,3 @@ def verifySigned(data: int, width: int):
 
     if data > signed_max(width):
         raise SignedOverflow(data, width)
-
-
-def sign_extend(x: int, width: int) -> int:
-    mask = (1 << width) - 1
-    x &= mask
-    sign = 1 << (width - 1)
-    return (x ^ sign) - sign
-

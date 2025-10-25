@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
 import argparse
 import os
 import logging
-from enum import Enum, auto
-
 import sys
 import ram
 import loader
@@ -39,7 +36,7 @@ def parse_args():
     parser.add_argument(
         "--proc",
         type=str,
-        required=True,
+        default="single",
         help="Select processor type (single / pipelined)",
     )
 

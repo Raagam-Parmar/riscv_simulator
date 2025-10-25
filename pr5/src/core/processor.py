@@ -133,9 +133,9 @@ class Processor(ABC):
         op = decoded.op
         result = ex_mem_latch.result
         imm = decoded.imm if decoded.imm else 0
-        
+
         self.logr.debug(isinstance(op, Branch_ops))
-        
+
         if (op is Jump_ops.JAL) or (op is Imm_ops.JALR):
             self.pc = result
             self.logr.debug(f'Written {result} to next PC.')
@@ -221,10 +221,10 @@ class Processor(ABC):
 
         # Jump instruction
         if isinstance(op, Jump_ops) or op is Imm_ops.JALR:
-            # Compute v_rd as pc + 4 parallely (in hardware this would be done 
+            # Compute v_rd as pc + 4 parallely (in hardware this would be done
             # by an accelerator)
             v_rd = self.curr_pc + 4
-            
+
             self.regfile.write(rd, v_rd)
             self.logr.out(
                 f"{self.curr_pc:08x} | "

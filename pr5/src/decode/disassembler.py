@@ -171,7 +171,7 @@ def disassemble_op_imm(inst: int) -> Optional[Instruction]:
     rs1 = rs1_field.extract(inst)
     fun7 = fun7_field.extract(inst)
     imm = sign_extend(i_imm_field.extract(inst), i_imm_width)
-    
+
     # TODO Fix constraints for SRAI, SLLI, SRLI
 
     if fun3 in op_imm_f3_tbl:
@@ -179,7 +179,7 @@ def disassemble_op_imm(inst: int) -> Optional[Instruction]:
 
     if (fun3, fun7) not in op_imm_f3_f7_tbl:
         return None
-    
+
     opcode = op_imm_f3_f7_tbl[(fun3, fun7)]
 
     if opcode is Imm_ops.SLLI or opcode is Imm_ops.SRLI or opcode is Imm_ops.SRAI:
@@ -292,6 +292,10 @@ opcode_tbl: Dict[int, Callable[[int], Optional[Instruction]]] = {
 # Disassembler
 # ---------------------------------------------------------------------------- #
 def disassemble(inst: int) -> Optional[Instruction]:
+    """Disassemble a RISCV instruction.
+
+    Returns `None` if the instruction is invalid or unimplemented.
+    """
     opcode = opcode_field.extract(inst)
 
     if opcode not in opcode_tbl:
@@ -301,14 +305,19 @@ def disassemble(inst: int) -> Optional[Instruction]:
 
 
 def disassemble_error(inst: int) -> Instruction:
+    """Disassemble a RISCV instruction.
+
+    Raises `InvalidInstruction` if the instruction is invalid or unimplemented.
+    """
+
     opcode = opcode_field.extract(inst)
 
     if opcode not in opcode_tbl:
         raise InvalidInstruction(inst)
 
     maybe_inst = opcode_tbl[opcode](inst)
-    
+
     if not maybe_inst:
         raise InvalidInstruction(inst)
-    
+
     return maybe_inst
