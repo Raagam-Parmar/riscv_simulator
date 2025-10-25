@@ -14,7 +14,7 @@ from .alu_tables import *
 from utils.bits import sign_extend
 
 
-@dataclass
+@dataclass(frozen=True)
 class PC_IF_Latch:
     """
     Program Counter/Fetch Latch
@@ -22,10 +22,11 @@ class PC_IF_Latch:
     Holds:
     - Program counter
     """
+
     pc: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class IF_ID_Latch:
     """
     Fetch/Decode Latch
@@ -34,6 +35,7 @@ class IF_ID_Latch:
     - Program counter
     - Fetched instruction
     """
+
     inst: int
     pc: int
 
@@ -53,6 +55,7 @@ class ID_EX_Latch:
     - Fetched operands
     - Program counter
     """
+
     op: OpCode
     rs1: Optional[int]
     rs2: Optional[int]
@@ -80,6 +83,7 @@ class EX_MEM_Latch:
     - ALU Result
     - Program counter
     """
+
     op: OpCode
     rs1: Optional[int]
     rs2: Optional[int]
@@ -104,6 +108,7 @@ class MEM_WB_Latch:
     - Load-data (for Load instruction)
     - Program counter
     """
+
     op: OpCode
     # rs1: Optional[int]
     rs2: Optional[int]
@@ -333,13 +338,13 @@ class Processor(ABC):
             pc=ex_mem_latch.pc,
         )
 
-    def writeback(self, mem_wb_latch: MEM_WB_Latch, pc_if_latch: PC_IF_Latch) -> None:
+    def log_instruction(
+        self, mem_wb_latch: MEM_WB_Latch, pc_if_latch: PC_IF_Latch
+    ) -> None:
+        # TODO Make documentation better.
+        # TODO Check if the data structures need refinement
         """
-        Write the result of the operation back to the register.
-
-        :param mem_wb_latch: Latch containing decoded instruction, execution
-        result, pc and loaded data for writeback
-        :param pc_if_latch: Latch containing the new program counter value
+        Log the executed instruction, given the current state and next pc value
         """
         # NOTE: CAUTION - Changing the outputs here will violate test cases
         result = mem_wb_latch.result
@@ -348,7 +353,7 @@ class Processor(ABC):
         pc = mem_wb_latch.pc
         next_pc = pc_if_latch.pc
 
-        # Branch instructions
+        # Branch instruction
         if isinstance(op, Branch_ops):
             self.logr.out(
                 f"{pc:08x} | "
@@ -360,11 +365,6 @@ class Processor(ABC):
 
         # Jump instruction
         if isinstance(op, Jump_ops) or op is Imm_ops.JALR:
-            # Compute v_rd as pc + 4 parallely (in hardware this would be done
-            # by an accelerator)
-            v_rd = pc + 4
-
-            self.regfile.write(rd, v_rd)
             self.logr.out(
                 f"{pc:08x} | "
                 + f"next_pc = {next_pc:08x} | "
@@ -373,14 +373,13 @@ class Processor(ABC):
             )
             return
 
+        # Load instruction
         if isinstance(op, Load_ops):
             loaded_data = mem_wb_latch.loaded_data
             result = mem_wb_latch.result
 
-            if not loaded_data:
+            if loaded_data is None:
                 loaded_data = 0
-
-            self.regfile.write(rd, loaded_data)
 
             self.logr.out(
                 f"{pc:08x} | "
@@ -390,6 +389,7 @@ class Processor(ABC):
             )
             return
 
+        # Store instruction
         if isinstance(op, Store_ops):
             result = mem_wb_latch.result
             rs2 = mem_wb_latch.rs2
@@ -404,24 +404,50 @@ class Processor(ABC):
             )
             return
 
-        # if is_unimplemented(inst):
-        #     self.logr.out(
-        #         f"{self.curr_pc:08x} | "
-        #         + f"next_pc = {self.pc:08x} | "
-        #         + f"x? = {0:08x} | "
-        #         + f"mem[?] = {0:08x} *unimplemented*"
-        #     )
-        #     return
-
         # All other instructions
         rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
-        self.regfile.write(rd, result)
         self.logr.out(
             f"{pc:08x} | "
             + f"next_pc = {next_pc:08x} | "
             + f"x{rd} = {self.regfile.read(rd):08x} | "
             + f"mem[?] = {0:08x}"
         )
+
+    def writeback(self, mem_wb_latch: MEM_WB_Latch) -> None:
+        """
+        Write the result of the operation back to the register.
+
+        :param mem_wb_latch: Latch containing decoded instruction, execution
+        result, pc and loaded data for writeback
+        :param pc_if_latch: Latch containing the new program counter value
+        """
+        result = mem_wb_latch.result
+        op = mem_wb_latch.op
+        rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
+        pc = mem_wb_latch.pc
+
+        # Jump instruction
+        if isinstance(op, Jump_ops) or op is Imm_ops.JALR:
+            # Compute v_rd as pc + 4 parallely
+            v_rd = pc + 4
+            self.regfile.write(rd, v_rd)
+            return
+
+        # Load instruction
+        if isinstance(op, Load_ops):
+            loaded_data = mem_wb_latch.loaded_data
+            result = mem_wb_latch.result
+
+            if loaded_data is None:
+                loaded_data = 0
+
+            self.regfile.write(rd, loaded_data)
+
+            return
+
+        # All other instructions
+        rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
+        self.regfile.write(rd, result)
 
     @abstractmethod
     def run(self, num_insts: int):
