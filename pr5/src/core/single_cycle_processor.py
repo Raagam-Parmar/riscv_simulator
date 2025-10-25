@@ -14,16 +14,18 @@ class SingleCycleProcessor(Processor):
         """
 
         i_cnt = 0
+        pc_if = self.initialise_pc()
+
         while i_cnt < num_insts:
-            l1 = self.fetch()
-            l2 = self.decode(l1)
-            l3 = self.execute(l2)
-            l4 = self.mem_access(l3)
-            self.update_pc(l3)
-            self.writeback(l4)
-            
+            if_id = self.fetch(pc_if)
+            id_ex = self.decode(if_id)
+            ex_mem = self.execute(id_ex)
+            mem_wb = self.mem_access(ex_mem)
+            pc_if = self.update_pc(ex_mem)
+            self.writeback(mem_wb, pc_if)
+
             i_cnt += 1
-            
+
             self.stats.increment_instruction_count()
 
         self.logr.info(f"Simulated {i_cnt} instructions")

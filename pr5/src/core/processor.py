@@ -1,13 +1,9 @@
 from abc import ABC, abstractmethod
-from .fu import *
-
-# from .riscv_tables import *
 
 from ram import RAM
 from logger import PR5Logger
 from utils.constants import XWIDTH
 
-# from typs import inst32
 from decode.disassembler import disassemble_error
 from isa.formats import *
 from isa.enums import *
@@ -19,8 +15,14 @@ from utils.bits import sign_extend
 
 
 @dataclass
+class PC_IF_Latch:
+    pc: int
+
+
+@dataclass
 class IF_ID_Latch:
     inst: int
+    pc: int
 
 
 @dataclass(frozen=True)
@@ -28,11 +30,13 @@ class ID_EX_Latch:
     decoded: UnifiedInstruction
     op1: int
     op2: int
+    pc: int
 
 
 @dataclass(frozen=True)
 class EX_MEM_Latch:
     decoded: UnifiedInstruction
+    pc: int
     result: int
 
 
@@ -41,30 +45,33 @@ class MEM_WB_Latch:
     decoded: UnifiedInstruction
     result: int
     loaded_data: Optional[int]
+    pc: int
 
 
 class Processor(ABC):
-    def __init__(self, start: int, ram: RAM, logger: PR5Logger) -> None:
-
-        # self.pc      = ProgramCounter(start)
-        self.pc: int = start
-        self.curr_pc: int = 0
+    def __init__(self, init_pc: int, ram: RAM, logger: PR5Logger) -> None:
+        self.init_pc = init_pc
         self.regfile = RegisterFile(XWIDTH, zero_reg=True)
         self.mem = ram
         self.logr = logger
 
-    def fetch(self) -> IF_ID_Latch:
+    def initialise_pc(self):
+        return PC_IF_Latch(self.init_pc)
+
+    def fetch(self, pc_if_latch: PC_IF_Latch) -> IF_ID_Latch:
         """
         Fetch the instruction from memory, and update PC
         returns instruction
         """
+        pc = pc_if_latch.pc
+
         try:
-            self.curr_pc = self.pc
-            instruction = self.mem.read_word(self.curr_pc)
-            self.logr.debug(f"got instruction {instruction:08x} at {self.curr_pc:08x}")
-            return IF_ID_Latch(inst=instruction)
+            instruction = self.mem.read_word(pc)
+            self.logr.debug(f"[F] Fetched instruction {instruction:08x} @ {pc:08x}")
+            return IF_ID_Latch(inst=instruction, pc=pc)
+
         except ValueError as e:
-            self.logr.error(f"Error fetching instruction at {self.curr_pc:08x}: {e}")
+            self.logr.error(f"Error fetching instruction at {pc:08x}: {e}")
             exit()
 
     def decode(self, if_id_latch: IF_ID_Latch) -> ID_EX_Latch:
@@ -83,7 +90,7 @@ class Processor(ABC):
         v_rs2 = self.regfile.read(rs2) if rs2 is not None else 0
 
         self.logr.debug(f"rs1 = {rs1}, rs2 = {rs2}, imm = {hex(v_imm)}, op = {op}")
-        v_pc = self.curr_pc
+        v_pc = if_id_latch.pc
 
         # op1, op2 = operands_tbl.get(opcode, (None, None))(
         #     v_rs1, v_rs2, v_imm, v_pc
@@ -104,7 +111,7 @@ class Processor(ABC):
 
         self.logr.debug(f"op1: {op1}, op2: {op2}")
 
-        return ID_EX_Latch(decoded=decoded, op1=op1, op2=op2)
+        return ID_EX_Latch(decoded=decoded, op1=op1, op2=op2, pc=if_id_latch.pc)
 
     def execute(self, id_ex_latch: ID_EX_Latch) -> EX_MEM_Latch:
         """
@@ -122,9 +129,9 @@ class Processor(ABC):
         result = function_tbl[decoded.op](op1, op2)
         self.logr.debug(f"Result of {decoded.op} is: {result}")
 
-        return EX_MEM_Latch(decoded=decoded, result=result)
+        return EX_MEM_Latch(decoded=decoded, result=result, pc=id_ex_latch.pc)
 
-    def update_pc(self, ex_mem_latch: EX_MEM_Latch) -> None:
+    def update_pc(self, ex_mem_latch: EX_MEM_Latch) -> PC_IF_Latch:
         """
         Update PC to take a branch or jump
         """
@@ -133,22 +140,28 @@ class Processor(ABC):
         op = decoded.op
         result = ex_mem_latch.result
         imm = decoded.imm if decoded.imm else 0
+        pc = ex_mem_latch.pc
 
         self.logr.debug(isinstance(op, Branch_ops))
 
         if (op is Jump_ops.JAL) or (op is Imm_ops.JALR):
-            self.pc = result
-            self.logr.debug(f'Written {result} to next PC.')
-        elif isinstance(op, Branch_ops):
+            next_pc = result
+            self.logr.debug(f"Written {result} to next PC.")
+            return PC_IF_Latch(pc=next_pc)
+
+        if isinstance(op, Branch_ops):
             if result:
-                self.logr.debug(f'PC += imm, {self.curr_pc} --> {self.curr_pc + imm}')
-                self.pc = self.curr_pc + imm
+                next_pc = pc + imm
+                self.logr.debug(f"PC += imm, {pc} --> {next_pc}")
+                return PC_IF_Latch(pc=next_pc)
             else:
-                self.logr.debug(f'PC += 4, {self.curr_pc} --> {self.curr_pc + 4}')
-                self.pc = self.curr_pc + 4
+                next_pc = pc + 4
+                self.logr.debug(f"PC += 4, {pc} --> {next_pc}")
+                return PC_IF_Latch(pc=next_pc)
         else:
-            self.logr.debug(f'PC += 4, {self.curr_pc} --> {self.curr_pc + 4}')
-            self.pc = self.curr_pc + 4
+            next_pc = pc + 4
+            self.logr.debug(f"PC += 4, {pc} --> {next_pc}")
+            return PC_IF_Latch(pc=next_pc)
 
     def mem_access(self, ex_mem_latch: EX_MEM_Latch) -> MEM_WB_Latch:
         """
@@ -175,7 +188,10 @@ class Processor(ABC):
                     loaded_data = self.mem.read_word(addr)
 
             return MEM_WB_Latch(
-                decoded=decoded, result=ex_mem_latch.result, loaded_data=loaded_data
+                decoded=decoded,
+                result=ex_mem_latch.result,
+                loaded_data=loaded_data,
+                pc=ex_mem_latch.pc,
             )
 
         # Handle store instructions
@@ -192,14 +208,20 @@ class Processor(ABC):
                     self.mem.write_word(addr, data)
 
             return MEM_WB_Latch(
-                decoded=decoded, result=ex_mem_latch.result, loaded_data=None
+                decoded=decoded,
+                result=ex_mem_latch.result,
+                loaded_data=None,
+                pc=ex_mem_latch.pc,
             )
 
         return MEM_WB_Latch(
-            decoded=decoded, result=ex_mem_latch.result, loaded_data=None
+            decoded=decoded,
+            result=ex_mem_latch.result,
+            loaded_data=None,
+            pc=ex_mem_latch.pc,
         )
 
-    def writeback(self, mem_wb_latch: MEM_WB_Latch) -> None:
+    def writeback(self, mem_wb_latch: MEM_WB_Latch, pc_if_latch: PC_IF_Latch) -> None:
         """
         Write the result of the operation back to the register.
         """
@@ -208,12 +230,14 @@ class Processor(ABC):
         result = mem_wb_latch.result
         op = decoded.op
         rd = decoded.rd if decoded.rd else 0
+        pc = mem_wb_latch.pc
+        next_pc = pc_if_latch.pc
 
         # Branch instructions
         if isinstance(op, Branch_ops):
             self.logr.out(
-                f"{self.curr_pc:08x} | "
-                + f"next_pc = {self.pc:08x} | "
+                f"{pc:08x} | "
+                + f"next_pc = {next_pc:08x} | "
                 + f"x? = {0:08x} | "
                 + f"mem[?] = {0:08x}"
             )
@@ -223,12 +247,12 @@ class Processor(ABC):
         if isinstance(op, Jump_ops) or op is Imm_ops.JALR:
             # Compute v_rd as pc + 4 parallely (in hardware this would be done
             # by an accelerator)
-            v_rd = self.curr_pc + 4
+            v_rd = pc + 4
 
             self.regfile.write(rd, v_rd)
             self.logr.out(
-                f"{self.curr_pc:08x} | "
-                + f"next_pc = {self.pc:08x} | "
+                f"{pc:08x} | "
+                + f"next_pc = {next_pc:08x} | "
                 + f"x{rd} = {self.regfile.read(rd):08x} | "
                 + f"mem[?] = {0:08x}"
             )
@@ -244,8 +268,8 @@ class Processor(ABC):
             self.regfile.write(rd, loaded_data)
 
             self.logr.out(
-                f"{self.curr_pc:08x} | "
-                + f"next_pc = {self.pc:08x} | "
+                f"{pc:08x} | "
+                + f"next_pc = {next_pc:08x} | "
                 + f"x{rd} = {self.regfile.read(rd):08x} | "
                 + f"mem[{result:08x}] => {loaded_data:08x}"
             )
@@ -259,8 +283,8 @@ class Processor(ABC):
             data = self.regfile.read(rs2 if rs2 else 0)
 
             self.logr.out(
-                f"{self.curr_pc:08x} | "
-                + f"next_pc = {self.pc:08x} | "
+                f"{pc:08x} | "
+                + f"next_pc = {next_pc:08x} | "
                 + f"x? = {0:08x} | "
                 + f"mem[{result:08x}] <= {data:08x}"
             )
@@ -279,8 +303,8 @@ class Processor(ABC):
         rd = decoded.rd if decoded.rd else 0
         self.regfile.write(rd, result)
         self.logr.out(
-            f"{self.curr_pc:08x} | "
-            + f"next_pc = {self.pc:08x} | "
+            f"{pc:08x} | "
+            + f"next_pc = {next_pc:08x} | "
             + f"x{rd} = {self.regfile.read(rd):08x} | "
             + f"mem[?] = {0:08x}"
         )
