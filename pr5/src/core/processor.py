@@ -13,6 +13,9 @@ from decode.fields import *
 from .alu_tables import *
 from utils.bits import sign_extend
 
+# TODO Remove regfile read in store stage
+# instead pass the v_rs2 value down the pipeline
+
 
 class UnimplementedExecution(Exception):
     def __init__(self, inst: Instruction):
@@ -148,101 +151,82 @@ class Processor(ABC):
             self.logr.error(f"Error fetching instruction at {pc:08x}: {e}")
             exit()
 
-    def decode(self, if_id_latch: IF_ID_Latch) -> ID_EX_Latch:
+    def decode(self, if_id_latch: IF_ID_Latch) -> Instruction:
         """
-        Decode the instruction and fetch the required operands.
+        Decode the instruction.
 
         :param if_id_latch: Latch containing fetched instruction and program
         counter
 
-        :returns: Latch containing decoded instructions, fetched operands and pc
+        :returns: Decoded instruction
 
         :raises InvalidInstruction: If the instruction is invalid or unsupported
-        :raises UnimplementedExecution: If execution of the instruction is unimplemented
         """
         dis = disassemble_error(if_id_latch.inst)
-
         self.logr.debug(f"[D] Decoded instruction {dis}")
+        return dis
 
-        match dis:
+    def operand_fetch(self, inst: Instruction, if_id: IF_ID_Latch) -> ID_EX_Latch:
+        """
+        Fetch the required operands for a decoded instruction
+
+        :param inst: Decoded instruction
+        :param if_id: Latch containing fetched instruction and program
+        counter
+
+        :returns: Latch containing decoded instructions, fetched operands and pc
+
+        :raises UnimplementedExecution: If execution of the instruction is unimplemented
+        """
+
+        match inst:
             case Reg():
-                op1 = self.regfile.read(dis.rs1)
-                op2 = self.regfile.read(dis.rs2)
+                op1 = self.regfile.read(inst.rs1)
+                op2 = self.regfile.read(inst.rs2)
 
-                if dis.op is Reg_ops.SUB:
+                if inst.op is Reg_ops.SUB:
                     op2 = -1 * op2
 
             case Imm() | Store() | Load():
-                op1 = self.regfile.read(dis.rs1)
-                op2 = dis.imm
+                op1 = self.regfile.read(inst.rs1)
+                op2 = inst.imm
 
             case Branch():
-                op1 = self.regfile.read(dis.rs1)
-                op2 = self.regfile.read(dis.rs2)
+                op1 = self.regfile.read(inst.rs1)
+                op2 = self.regfile.read(inst.rs2)
 
             case Upper():
-                match dis.op:
+                match inst.op:
                     case Upper_ops.LUI:
                         # NOTE imm << 12
                         # e_sll functional unit used
-                        op1 = dis.imm
+                        op1 = inst.imm
                         op2 = 12
                     case Upper_ops.AUIPC:
                         # NOTE pc + (imm << 12)
                         # e_auipc functional unit used
-                        op1 = if_id_latch.pc
-                        op2 = dis.imm
+                        op1 = if_id.pc
+                        op2 = inst.imm
 
             case Jump():
                 # NOTE pc + imm
                 # e_add functional unit used
-                op1 = if_id_latch.pc
-                op2 = dis.imm
+                op1 = if_id.pc
+                op2 = inst.imm
 
             case _:
-                raise UnimplementedExecution(dis)
+                raise UnimplementedExecution(inst)
 
         self.logr.debug(f"    Fetched operands")
         self.logr.debug(f"     - op1 = {op1}")
         self.logr.debug(f"     - op2 = {op2}")
 
         return ID_EX_Latch(
-            inst=dis,
+            inst=inst,
             op1=op1,
             op2=op2,
-            pc=if_id_latch.pc,
+            pc=if_id.pc,
         )
-
-        # decoded = dis.get_unified()
-
-        # rs1 = decoded.rs1
-        # rs2 = decoded.rs2
-        # rd = decoded.rd
-        # v_imm = decoded.imm if decoded.imm else 0
-        # op = decoded.op
-
-        # v_rs1 = self.regfile.read(rs1) if rs1 is not None else 0
-        # v_rs2 = self.regfile.read(rs2) if rs2 is not None else 0
-
-        # self.logr.debug(f"rs1 = {rs1}, rs2 = {rs2}, imm = {hex(v_imm)}, op = {op}")
-        # v_pc = if_id_latch.pc
-
-        # try:
-        #     op1, op2 = operands_tbl[op](v_rs1, v_rs2, v_imm, v_pc)
-        # except KeyError:
-        #     raise NotImplementedError(f"Op not implemented in operands_tbl: {op}")
-
-        # self.logr.debug(f"op1: {op1}, op2: {op2}")
-
-        # return ID_EX_Latch(
-        #     op=op,
-        #     rs2=rs2,
-        #     rd=rd,
-        #     imm=v_imm,
-        #     op1=op1,
-        #     op2=op2,
-        #     pc=if_id_latch.pc,
-        # )
 
     def execute(self, id_ex_latch: ID_EX_Latch) -> EX_MEM_Latch:
         """
@@ -258,7 +242,7 @@ class Processor(ABC):
         op = id_ex_latch.inst.op
 
         result = function_tbl[op](op1, op2)
-        self.logr.debug(f"Result of {op} is: {result}")
+        self.logr.debug(f"[E] Result of {op} is: {result}")
 
         return EX_MEM_Latch(
             inst=id_ex_latch.inst,
@@ -347,6 +331,10 @@ class Processor(ABC):
                     case Load_ops.LW:
                         loaded_data = self.mem.read_word(addr)
 
+                self.logr.debug(
+                    f"[M] Retrieved data {loaded_data} from memory address {addr}"
+                )
+
                 return MEM_WB_Latch(
                     inst=inst,
                     result=ex_mem_latch.result,
@@ -369,6 +357,10 @@ class Processor(ABC):
                     case Store_ops.SW:
                         self.mem.write_word(addr, data)
 
+                self.logr.debug(
+                    f"[M] Stored data {data} to memory address {addr}"
+                )
+
                 return MEM_WB_Latch(
                     inst=inst,
                     result=ex_mem_latch.result,
@@ -377,6 +369,10 @@ class Processor(ABC):
                 )
 
             case _:
+                self.logr.debug(
+                    f"[M] No memory operation required."
+                )
+
                 return MEM_WB_Latch(
                     inst=inst,
                     result=ex_mem_latch.result,
@@ -395,7 +391,6 @@ class Processor(ABC):
         # NOTE: CAUTION - Changing the outputs here will violate test cases
         result = mem_wb_latch.result
         inst = mem_wb_latch.inst
-        op = inst.op
         pc = mem_wb_latch.pc
         next_pc = pc_if_latch.pc
 
@@ -473,6 +468,7 @@ class Processor(ABC):
                     loaded_data = 0
 
                 self.regfile.write(rd, loaded_data)
+                self.logr.debug(f"[W] Written {loaded_data} to {rd}")
 
                 return
 
@@ -492,14 +488,20 @@ class Processor(ABC):
                         v_rd = result
 
                 self.regfile.write(rd, v_rd)
+                self.logr.debug(f"[W] Written {v_rd} to {rd}")
+
                 return
 
             case Store() | Branch() | System():
+                self.logr.debug(f"[W] Written ... to ...")
                 return
 
             case _:
                 rd = inst.rd
                 self.regfile.write(rd, result)
+                self.logr.debug(f"[W] Written {result} to {rd}")
+
+                return
 
     @abstractmethod
     def run(self, num_insts: int):

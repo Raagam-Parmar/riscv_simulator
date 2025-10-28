@@ -22,6 +22,12 @@ class InvalidRange(Exception):
         super().__init__(self.message)
 
 
+class UnwrittenMemoryAddress(Exception):
+    def __init__(self, addr: int):
+        self.message = f"Address {addr} has not been written to the RAM and hence should not be read from the RAM."
+        super().__init__(self.message)
+
+
 class RAM:
     def __init__(self, width: int, addr_width: int, logger: PR5Logger) -> None:
         """Initialise the RAM with specified `width` and `address width`.
@@ -61,28 +67,31 @@ class RAM:
         if not (0 <= address <= addr_max):
             raise AddressOutOfRange(address, addr_max)
 
-
     def _verify_data(self, data: int, width: int) -> None:
         bits.verifyUnsigned(data, width)
-        
-# ---------------------------------------------------------------------------- #
-# Functions for reading and writing bytes
+
+    # ---------------------------------------------------------------------------- #
+    # Functions for reading and writing bytes
 
     def read_byte(self, address: int) -> int:
         self._check_byte_addr(address)
-        return self.data.get(address, 0)
+
+        if address not in self.data:
+            raise UnwrittenMemoryAddress(address)
+
+        return self.data[address]
 
     def write_byte(self, address: int, data: int) -> None:
         self._check_byte_addr(address)
         self._verify_data(data, self.width)
 
-        if data == 0:
-            self.data.pop(address, None)
-        else:
-            self.data[address] = data
+        # if data == 0:
+        #     self.data.pop(address, None)
+        # else:
+        self.data[address] = data
 
-# ---------------------------------------------------------------------------- #
-# Functions for reading and writing halfwords (2 bytes)
+    # ---------------------------------------------------------------------------- #
+    # Functions for reading and writing halfwords (2 bytes)
 
     def read_halfword(self, address: int) -> int:
         self._check_halfword_addr(address)
@@ -105,8 +114,8 @@ class RAM:
             byte = (data >> (i * self.width)) & mask
             self.write_byte(address + i, byte)
 
-# ---------------------------------------------------------------------------- #
-# Functions for reading and writing word (4 bytes)
+    # ---------------------------------------------------------------------------- #
+    # Functions for reading and writing word (4 bytes)
 
     def read_word(self, address: int) -> int:
         self._check_word_addr(address)
@@ -128,9 +137,8 @@ class RAM:
         for i in range(4):
             byte = (data >> (i * self.width)) & mask
             self.write_byte(address + i, byte)
-            
-# ---------------------------------------------------------------------------- #
-    
+
+    # ---------------------------------------------------------------------------- #
 
     def clear(self) -> None:
         """Clear RAM to all zeroes."""

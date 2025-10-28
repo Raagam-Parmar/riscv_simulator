@@ -18,7 +18,8 @@ class SingleCycleProcessor(Processor):
 
         while i_cnt < num_insts:
             if_id = self.fetch(pc_if)
-            id_ex = self.decode(if_id)
+            inst = self.decode(if_id)
+            id_ex = self.operand_fetch(inst, if_id)
             ex_mem = self.execute(id_ex)
             mem_wb = self.mem_access(ex_mem)
             pc_if = self.update_pc(ex_mem)

@@ -25,3 +25,6 @@ _temps
 
 # Ignore flag on files
 _ignore*.*
+
+# Unfinished files
+proper_pipelined_processor.py
