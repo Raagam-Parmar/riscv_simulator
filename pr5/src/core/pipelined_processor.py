@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -7,7 +5,7 @@ from ram import RAM
 from logger import PR5Logger
 from stats import Statistics
 from .processor import *
-from decode.disassembler import disassemble_error, InvalidInstruction
+from decode.disassembler import disassemble_error
 from isa.properties import *
 
 
@@ -53,12 +51,6 @@ class PipelineControl:
     mem_wb: LatchControl
 
 
-# class Hazard(Enum):
-#     NO_HAZARD = auto()
-#     READ_AFTER_WRITE = auto()
-#     BRANCH = auto()
-
-
 class PipelinedProcessor(Processor):
     def __init__(self, start: int, ram: RAM, logger: PR5Logger, stats: Statistics):
         super().__init__(start, ram, logger)
@@ -87,7 +79,7 @@ class PipelinedProcessor(Processor):
         pipeline_control = PipelineControl(
             pc_if=LatchControl.STALL,
             if_id=LatchControl.STALL,
-            id_ex=LatchControl.CONTD,
+            id_ex=LatchControl.FLUSH,
             ex_mem=LatchControl.CONTD,
             mem_wb=LatchControl.CONTD,
         )
@@ -141,7 +133,7 @@ class PipelinedProcessor(Processor):
 
         if ex_mem is not None and modifies_pc(ex_mem.inst):
             return PipelineControl(
-                pc_if=LatchControl.STALL,
+                pc_if=LatchControl.CONTD,
                 if_id=LatchControl.FLUSH,
                 id_ex=LatchControl.FLUSH,
                 ex_mem=LatchControl.FLUSH,
@@ -149,8 +141,6 @@ class PipelinedProcessor(Processor):
             )
 
         return None
-
-    # TODO branch OF jump. introduce bubbles, dont flush.
 
     def hazard_detection_unit(self, latches: PipelineLatches) -> PipelineControl:
         """
@@ -180,83 +170,195 @@ class PipelinedProcessor(Processor):
 
         return hazard_safe
 
+    def fetch_pipelined(
+        self, latches: PipelineLatches, controls: PipelineControl
+    ) -> Optional[IF_ID_Latch]:
+        """
+        Given the current state of the CPU, and a summary of the updation controls,
+        determines the next IF/ID latch.
+
+        :param latches: The current state of the CPU
+        :param controls Updation controls for the pipeline
+        """
+
+        pc_if = latches.pc_if
+        if_id = latches.if_id
+
+        match controls.if_id:
+            case LatchControl.STALL:
+                self.logr.debug("[F] Stalling IF/ID")
+                return if_id
+
+            case LatchControl.FLUSH:
+                self.logr.debug("[F] Flushing IF/ID")
+                return None
+
+            case LatchControl.CONTD:
+                return self.fetch(pc_if)
+
     def decode_pipelined(
-        self,
-        latches: PipelineLatches,
+        self, latches: PipelineLatches, controls: PipelineControl
     ) -> Optional[ID_EX_Latch]:
-        # decode the instruction and also check for a RAW / Load-read hazard, in
-        # case of which return None, otherwise return the next latch object.
+        """
+        Given the current state of the CPU, and a summary of the updation controls,
+        determines the next ID/EX latch.
+
+        :param latches: The current state of the CPU
+        :param controls Updation controls for the pipeline
+        """
+
         if_id = latches.if_id
         id_ex = latches.id_ex
-        ex_mem = latches.ex_mem
 
-        if if_id is None:
-            self.logr.debug("[D] Nothing to decode")
-            return None
+        match controls.id_ex:
+            case LatchControl.STALL:
+                self.logr.debug("[D] Stalling ID/EX")
+                return id_ex
 
-        inst = if_id.inst
-        try:
-            dis = disassemble_error(inst)
-        except InvalidInstruction as e:
-            print(e)
-            print(if_id.pc)
-            exit(1)
-
-        self.logr.debug(f"[D] Decoded instruction {dis}")
-
-        if id_ex is not None and has_rd(id_ex.inst):
-            if (has_rs1(dis) and (dis.rs1 == id_ex.inst.rd)) or (
-                has_rs2(dis) and (dis.rs2 == id_ex.inst.rd)
-            ):
-                self.logr.debug(f"    (o) Bubble introduced in ID/EX")
+            case LatchControl.FLUSH:
+                self.logr.debug("[D] Flushing ID/EX")
                 return None
 
-        if ex_mem is not None and has_rd(ex_mem.inst):
-            if (has_rs1(dis) and (dis.rs1 == ex_mem.inst.rd)) or (
-                has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd)
-            ):
-                self.logr.debug(f"    (o) Bubble introduced in ID/EX")
-                return None
+            case LatchControl.CONTD:
+                if if_id is None:
+                    self.logr.debug("[D] Bubble in ID/EX")
+                    return None
 
-        next_id_ex = self.operand_fetch(dis, if_id)
-        return next_id_ex
+                dis = self.decode(if_id)
+                return self.operand_fetch(dis, if_id)
 
-    def execute_pipelined(self, latches: PipelineLatches) -> Optional[EX_MEM_Latch]:
+    def execute_pipelined(
+        self, latches: PipelineLatches, controls: PipelineControl
+    ) -> Optional[EX_MEM_Latch]:
+        """
+        Given the current state of the CPU, and a summary of the updation controls,
+        determines the next EX/MEM latch.
+
+        :param latches: The current state of the CPU
+        :param controls Updation controls for the pipeline
+        """
+
         id_ex = latches.id_ex
-
-        if id_ex is None:
-            self.logr.debug(f"[E] Nothing to compute")
-            return None
-
-        return self.execute(id_ex)
-
-    def mem_access_pipelined(self, latches: PipelineLatches) -> Optional[MEM_WB_Latch]:
         ex_mem = latches.ex_mem
 
-        if ex_mem is None:
-            self.logr.debug(f"[M] Nothing for memory access")
-            return None
+        match controls.ex_mem:
+            case LatchControl.STALL:
+                self.logr.debug("[E] Stalling EX/MEM")
+                return ex_mem
 
-        return self.mem_access(ex_mem)
+            case LatchControl.FLUSH:
+                self.logr.debug("[E] Flushing EX/MEM")
+                return None
 
-    def update_pc_pipelined(self, latches: PipelineLatches) -> PC_IF_Latch:
-        pc = latches.pc_if.pc
+            case LatchControl.CONTD:
+                if id_ex is None:
+                    self.logr.debug(f"[E] Bubble in EX/MEMs")
+                    return None
+
+                return self.execute(id_ex)
+
+    def mem_access_pipelined(
+        self, latches: PipelineLatches, controls: PipelineControl
+    ) -> Optional[MEM_WB_Latch]:
+        """
+        Given the current state of the CPU, and a summary of the updation controls,
+        determines the next MEM/WB latch.
+
+        :param latches: The current state of the CPU
+        :param controls Updation controls for the pipeline
+        """
+
+        ex_mem = latches.ex_mem
+        mem_wb = latches.mem_wb
+
+        match controls.mem_wb:
+            case LatchControl.STALL:
+                self.logr.debug("[M] Stalling MEM/WB")
+                return mem_wb
+
+            case LatchControl.FLUSH:
+                self.logr.debug("[M] Flushing MEM/WB")
+                return None
+
+            case LatchControl.CONTD:
+                if ex_mem is None:
+                    self.logr.debug(f"[M] Bubble in MEM/WBs")
+                    return None
+
+                return self.mem_access(ex_mem)
+
+    def update_pc_pipelined(
+        self, latches: PipelineLatches, controls: PipelineControl
+    ) -> PC_IF_Latch:
+        """
+        Given the current state of the CPU, and a summary of the updation controls,
+        determines the next PC/IF latch.
+
+        :param latches: The current state of the CPU
+        :param controls Updation controls for the pipeline
+        """
+
+        pc_if = latches.pc_if
         ex_mem = latches.ex_mem
 
-        if ex_mem is None:
-            self.logr.debug(f"[U] PC = PC + 4")
-            return PC_IF_Latch(pc=pc + 4)
+        match controls.pc_if:
+            case LatchControl.STALL:
+                self.logr.debug("[U] Stalling PC/IF")
+                return pc_if
 
-        return self.update_pc(ex_mem)
+            case LatchControl.FLUSH:
+                raise RuntimeError(
+                    "[Bug] Unreachable code path. PC/IF latch should never be flushed."
+                )
+
+            case LatchControl.CONTD:
+                if ex_mem is None:
+                    self.logr.debug(f"[U] Bubble in EX/MEM")
+                    self.logr.debug(f"    Advancing: PC = PC + 4")
+                    return PC_IF_Latch(pc=pc_if.pc + 4)
+
+                if not modifies_pc(ex_mem.inst):
+                    self.logr.debug(
+                        f"[U] Discarding PC update of a non-jump instruction"
+                    )
+                    self.logr.debug(f"    Advancing: PC = PC + 4")
+                    return PC_IF_Latch(pc=pc_if.pc + 4)
+
+                return self.update_pc(ex_mem)
 
     def writeback_pipelined(self, latches: PipelineLatches) -> None:
+        """
+        Given the current state of the CPU, performs register-file writeback.
+
+        :param latches: The current state of the CPU
+        """
+
         mem_wb = latches.mem_wb
 
         if mem_wb is None:
-            self.logr.debug(f"[W] Nothing to writeback")
+            self.logr.debug(f"[W] Bubble in MEM/WB")
             return
 
         self.writeback(mem_wb)
+
+    def pretty_pipeline(self, latches: PipelineLatches) -> None:
+        curr_pc_if = latches.pc_if
+        curr_if_id = latches.if_id
+        curr_id_ex = latches.id_ex
+        curr_ex_mem = latches.ex_mem
+        curr_mem_wb = latches.mem_wb
+
+        pretty_pc_if = hex(curr_pc_if.pc) if curr_pc_if else "( )"
+        pretty_if_id = hex(curr_if_id.pc) if curr_if_id else "( )"
+        pretty_id_ex = hex(curr_id_ex.pc) if curr_id_ex else "( )"
+        pretty_ex_mem = hex(curr_ex_mem.pc) if curr_ex_mem else "( )"
+        pretty_mem_wb = hex(curr_mem_wb.pc) if curr_mem_wb else "( )"
+
+        self.logr.debug(f"PC/IF  {pretty_pc_if}")
+        self.logr.debug(f"IF/ID  {pretty_if_id}")
+        self.logr.debug(f"ID/EX  {pretty_id_ex}")
+        self.logr.debug(f"EX/MEM {pretty_ex_mem}")
+        self.logr.debug(f"MEM/WB {pretty_mem_wb}")
 
     def run(self, num_insts: int):
         """
@@ -284,24 +386,25 @@ class PipelinedProcessor(Processor):
         )
 
         while i_cnt < num_insts:
-            curr_pc_if = latches.pc_if
+            curr_mem_wb = latches.mem_wb
 
             self.logr.debug(f"+------- CC {i_cnt} -------+")
 
-            next_if_id = self.fetch(curr_pc_if)
-            self.writeback_pipelined(latches)
-            next_id_ex = self.decode_pipelined(latches)
-            next_ex_mem = self.execute_pipelined(latches)
-            next_mem_wb = self.mem_access_pipelined(latches)
-            next_pc_if = self.update_pc_pipelined(latches)
+            self.pretty_pipeline(latches)
 
-            if self._hazard_control(latches):
-                # Flush the previous three instructions in case of a branch instruction
-                next_if_id = None
-                next_id_ex = None
-                next_ex_mem = None
-                self.logr.debug("[H] Branch detected at EX/MEM")
-                self.logr.debug("    Flushing latches (a) IF/ID (b) ID/EX (c) EX/MEM")
+            controls = self.hazard_detection_unit(latches)
+
+            self.writeback_pipelined(latches)
+            next_if_id = self.fetch_pipelined(latches, controls)
+            next_id_ex = self.decode_pipelined(latches, controls)
+            next_ex_mem = self.execute_pipelined(latches, controls)
+            next_mem_wb = self.mem_access_pipelined(latches, controls)
+            next_pc_if = self.update_pc_pipelined(latches, controls)
+
+            if curr_mem_wb is not None:
+                self.log_instruction(curr_mem_wb, next_pc_if)
+
+            self.logr.debug("")
 
             latches = PipelineLatches(
                 pc_if=next_pc_if,
@@ -311,6 +414,8 @@ class PipelinedProcessor(Processor):
                 mem_wb=next_mem_wb,
             )
 
-            self.logr.debug("")
+            self.stats.increment_clock_cycle()
 
-            i_cnt = i_cnt + 1
+            if curr_mem_wb is not None:
+                i_cnt = i_cnt + 1
+                self.stats.increment_instruction_count()

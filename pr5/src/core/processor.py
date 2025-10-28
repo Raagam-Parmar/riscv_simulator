@@ -195,6 +195,13 @@ class Processor(ABC):
                 op1 = self.regfile.read(inst.rs1)
                 op2 = self.regfile.read(inst.rs2)
 
+                match inst.op:
+                    case Branch_ops.BLTU | Branch_ops.BGEU:
+                        pass
+                    case _:
+                        op1 = sign_extend(op1, XWIDTH)
+                        op2 = sign_extend(op2, XWIDTH)
+
             case Upper():
                 match inst.op:
                     case Upper_ops.LUI:
@@ -242,7 +249,7 @@ class Processor(ABC):
         op = id_ex_latch.inst.op
 
         result = function_tbl[op](op1, op2)
-        self.logr.debug(f"[E] Result of {op} is: {result}")
+        self.logr.debug(f"[E] ALU Result of {op} is: {hex(result)}")
 
         return EX_MEM_Latch(
             inst=id_ex_latch.inst,
@@ -296,7 +303,7 @@ class Processor(ABC):
             case PCSource.ALU_OUT:
                 self.logr.debug(f"[U] PC = alu_result")
 
-        self.logr.debug(f"    {pc} -> {next_pc}")
+        self.logr.debug(f"    {hex(pc)} -> {hex(next_pc)}")
 
         return PC_IF_Latch(pc=next_pc)
 
@@ -370,7 +377,7 @@ class Processor(ABC):
 
             case _:
                 self.logr.debug(
-                    f"[M] No memory operation required."
+                    f"[M] Idle"
                 )
 
                 return MEM_WB_Latch(
@@ -468,7 +475,7 @@ class Processor(ABC):
                     loaded_data = 0
 
                 self.regfile.write(rd, loaded_data)
-                self.logr.debug(f"[W] Written {loaded_data} to {rd}")
+                self.logr.debug(f"[W] Written {hex(loaded_data)} to x{rd}")
 
                 return
 
@@ -488,18 +495,18 @@ class Processor(ABC):
                         v_rd = result
 
                 self.regfile.write(rd, v_rd)
-                self.logr.debug(f"[W] Written {v_rd} to {rd}")
+                self.logr.debug(f"[W] Written {hex(v_rd)} to x{rd}")
 
                 return
 
             case Store() | Branch() | System():
-                self.logr.debug(f"[W] Written ... to ...")
+                self.logr.debug(f"[W] Idle")
                 return
 
             case _:
                 rd = inst.rd
                 self.regfile.write(rd, result)
-                self.logr.debug(f"[W] Written {result} to {rd}")
+                self.logr.debug(f"[W] Written {hex(result)} to x{rd}")
 
                 return
 
