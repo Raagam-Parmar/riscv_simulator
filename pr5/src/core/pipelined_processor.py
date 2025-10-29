@@ -71,6 +71,7 @@ class PipelinedProcessor(Processor):
         ex_mem = latches.ex_mem
 
         if if_id is None:
+            self.logr.debug("    No RAW Hazard")
             return None
 
         inst = if_id.inst
@@ -88,14 +89,17 @@ class PipelinedProcessor(Processor):
             if (has_rs1(dis) and (dis.rs1 == id_ex.inst.rd)) or (
                 has_rs2(dis) and (dis.rs2 == id_ex.inst.rd)
             ):
+                self.logr.debug("    RAW hazard: IF/ID and ID/EX")
                 return pipeline_control
 
         if ex_mem is not None and has_rd(ex_mem.inst):
             if (has_rs1(dis) and (dis.rs1 == ex_mem.inst.rd)) or (
                 has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd)
             ):
+                self.logr.debug("    RAW hazard: IF/ID and EX/MEM")
                 return pipeline_control
 
+        self.logr.debug("    No RAW hazard")
         return None
 
     def _hazard_control(self, latches: PipelineLatches) -> Optional[PipelineControl]:
@@ -114,6 +118,7 @@ class PipelinedProcessor(Processor):
         if if_id is not None:
             dis = disassemble_error(if_id.inst)
             if modifies_pc(dis):
+                self.logr.debug("    Control hazard: PC modifying instruction in IF/ID")
                 return PipelineControl(
                     pc_if=LatchControl.STALL,
                     if_id=LatchControl.FLUSH,
@@ -123,6 +128,7 @@ class PipelinedProcessor(Processor):
                 )
 
         if id_ex is not None and modifies_pc(id_ex.inst):
+            self.logr.debug("    Control hazard: PC modifying instruction in ID/EX")
             return PipelineControl(
                 pc_if=LatchControl.STALL,
                 if_id=LatchControl.FLUSH,
@@ -132,6 +138,7 @@ class PipelinedProcessor(Processor):
             )
 
         if ex_mem is not None and modifies_pc(ex_mem.inst):
+            self.logr.debug("    Control hazard: PC modifying instruction in EX/MEM")
             return PipelineControl(
                 pc_if=LatchControl.CONTD,
                 if_id=LatchControl.FLUSH,
@@ -140,6 +147,7 @@ class PipelinedProcessor(Processor):
                 mem_wb=LatchControl.CONTD,
             )
 
+        self.logr.debug("    No control hazard")
         return None
 
     def hazard_detection_unit(self, latches: PipelineLatches) -> PipelineControl:
@@ -150,6 +158,8 @@ class PipelinedProcessor(Processor):
 
         :returns: The updation control signals for the five latches.
         """
+
+        self.logr.debug("[H] Detected hazards:")
 
         hazard_raw = self._hazard_raw(latches)
         hazard_control = self._hazard_control(latches)
@@ -252,7 +262,7 @@ class PipelinedProcessor(Processor):
 
             case LatchControl.CONTD:
                 if id_ex is None:
-                    self.logr.debug(f"[E] Bubble in EX/MEMs")
+                    self.logr.debug(f"[E] Bubble in EX/MEM")
                     return None
 
                 return self.execute(id_ex)
@@ -388,7 +398,7 @@ class PipelinedProcessor(Processor):
         while i_cnt < num_insts:
             curr_mem_wb = latches.mem_wb
 
-            self.logr.debug(f"+------- CC {i_cnt} -------+")
+            self.logr.debug(f"+------- CC {self.stats.clock_cycles} -------+")
 
             self.pretty_pipeline(latches)
 

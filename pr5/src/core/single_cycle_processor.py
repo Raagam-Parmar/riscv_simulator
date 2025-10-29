@@ -29,5 +29,6 @@ class SingleCycleProcessor(Processor):
             i_cnt += 1
 
             self.stats.increment_instruction_count()
+            self.stats.increment_clock_cycle()
 
         self.logr.info(f"Simulated {i_cnt} instructions")
