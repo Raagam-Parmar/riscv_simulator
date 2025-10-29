@@ -1,3 +1,6 @@
+# TODO register should not be 0 for data hazard
+# TODO use my custom pretty printer instead of hex
+
 from dataclasses import dataclass
 from enum import Enum, auto
 

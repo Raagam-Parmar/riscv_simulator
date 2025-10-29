@@ -28,3 +28,7 @@ _ignore*.*
 
 # Unfinished files
 proper_pipelined_processor.py
+
+# Plans and TODOs
+plans.md
+todo.md
