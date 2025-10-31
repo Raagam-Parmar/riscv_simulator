@@ -1,18 +1,21 @@
 from pathlib import Path
 from typing import Union
 
-import ram
+import ram as ram
 
 
-def load(ram: ram.RAM, r5ob_path: Union[str, Path], start: int) -> int:
-    """Load int `ram` the contents of `r5ob` binary at path `r5ob_path`,
-    starting at `start` address.
+def load(ram: ram.RAM, r5ob_path: Union[str, Path], start_addr: int) -> int:
+    """
+    Load the binary at `r5ob_path` into `ram`, starting at address `start_addr`.
 
-    Returns:
-        int: Number of bytes written to the ram
+    :param ram: RAM to load the binary into
+    :param r5ob_path: Path to the r5ob binary
+    :param start_addr: RAM start address for loading binary
+
+    :returns: Number of bytes written to the RAM
     """
 
-    offset = start
+    offset = start_addr
 
     with open(r5ob_path, "rb") as f:
         while byte := f.read(1):
