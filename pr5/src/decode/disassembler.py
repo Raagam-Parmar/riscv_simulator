@@ -4,23 +4,13 @@ from utils.bits import sign_extend
 from isa.enums import *
 from isa.formats import *
 from isa.tables import *
-from .fields import *
+from decode.fields import *
 
 
 class InvalidInstruction(Exception):
     def __init__(self, inst: int):
         self.message = f"Invalid Instruction: {hex(inst)} , {bin(inst)}"
         super().__init__(self.message)
-
-
-# def sign_wrap(value: int, width: int) -> int:
-#     if value < 0:
-#         raise ValueError("sign_wrap: Value can not be negative.", value)
-
-#     if value > signed_max(width):
-#         return value - 2**width
-
-#     return value
 
 
 # ---------------------------------------------------------------------------- #
@@ -94,7 +84,7 @@ def disassemble_jalr(inst: int) -> Optional[Instruction]:
     rs1 = rs1_field.extract(inst)
     imm = sign_extend(i_imm_field.extract(inst), i_imm_width)
 
-    return Imm(Imm_ops.JALR, rd, rs1, imm)
+    return Jalr(Jalr_ops.JALR, rd, rs1, imm)
 
 
 # ---------------------------------------------------------------------------- #
@@ -159,7 +149,7 @@ def disassemble_jal(inst: int) -> Optional[Instruction]:
     imm = imm20 << 20 | imm19_12 << 12 | imm11 << 11 | imm10_1 << 1
     imm = sign_extend(imm, j_imm_width)
 
-    return Jump(Jump_ops.JAL, rd, imm)
+    return Jal(Jal_ops.JAL, rd, imm)
 
 
 # ---------------------------------------------------------------------------- #
@@ -294,7 +284,10 @@ opcode_tbl: Dict[int, Callable[[int], Optional[Instruction]]] = {
 def disassemble(inst: int) -> Optional[Instruction]:
     """Disassemble a RISCV instruction.
 
-    Returns `None` if the instruction is invalid or unimplemented.
+    :param inst: Binary-encoded instruction
+
+    :return: `None` if the instruction is invalid or unimplemented, otherwise the
+    disassembled instruction
     """
     opcode = opcode_field.extract(inst)
 
@@ -305,9 +298,13 @@ def disassemble(inst: int) -> Optional[Instruction]:
 
 
 def disassemble_error(inst: int) -> Instruction:
-    """Disassemble a RISCV instruction.
+    """Disassemble a RISCV instruction or raise an error.
 
-    Raises `InvalidInstruction` if the instruction is invalid or unimplemented.
+    :params inst: Binary-encoded instruction
+
+    :return: Disassembled instruction
+
+    :raises InvalidInstruction: if the instruction is invalid or unimplemented.
     """
 
     opcode = opcode_field.extract(inst)

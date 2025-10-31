@@ -1,3 +1,8 @@
+"""
+# RISC-V Instruction Encoding-Decoding Tables
+Lookup tables mapping instruction bit patterns to operation enumerations.
+"""
+
 from typing import Dict, Tuple
 
 from .enums import *
@@ -11,10 +16,15 @@ type const = int
 type csr = int
 
 
-# Reg instruction
-# +-----------+-------+------+---------+------------+-----------+
-# | funct7    | rs2   | rs1  | funct3  |     rd     |  0110011  |
-# +-----------+-------+------+---------+------------+-----------+
+# ============================================================================
+# R-Type: Register Operations
+# ============================================================================
+# Maps (funct3, funct7) pairs to register-register operations
+#
+#  31        25 24    20 19    15 14    12 11     7 6       0
+# +-----------+--------+--------+--------+--------+----------+
+# |  funct7   |  rs2   |  rs1   | funct3 |   rd   | 0110011  |
+# +-----------+--------+--------+--------+--------+----------+
 op_tbl: Dict[Tuple[funct3, funct7], Reg_ops] = {
     # RV32-I
     (0b000, 0b0000000): Reg_ops.ADD,

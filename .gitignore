@@ -14,6 +14,8 @@
 *.log
 *.stats
 *.json
+trace/
+stats/
 
 # Temporary files
 _planning.md
@@ -32,3 +34,7 @@ proper_pipelined_processor.py
 # Plans and TODOs
 plans.md
 todo.md
+structure.md
+
+# Test files
+testing-asms

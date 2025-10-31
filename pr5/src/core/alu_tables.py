@@ -48,7 +48,7 @@ operands_tbl : Dict[OpCode, OperandFunc] = {
     Imm_ops.SRAI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     Imm_ops.SLTI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
     Imm_ops.SLTIU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Imm_ops.JALR: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
+    Jalr_ops.JALR: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
 
     # Load instruction
     Load_ops.LB: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
@@ -75,7 +75,7 @@ operands_tbl : Dict[OpCode, OperandFunc] = {
     Upper_ops.AUIPC: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),
 
     # Jump instruction
-    Jump_ops.JAL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),
+    Jal_ops.JAL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),
 
     # TODO Misc Mem instruction
     # TODO Atomic instruction
@@ -121,7 +121,7 @@ function_tbl : Dict[OpCode, ExecFunc] = {
     Imm_ops.SRAI: e_sra,
     Imm_ops.SLTI: e_slt,
     Imm_ops.SLTIU: e_slt,
-    Imm_ops.JALR: e_add, # NOTE: Modified
+    Jalr_ops.JALR: e_add, # NOTE: Modified
 
     # Load instruction
     Load_ops.LB: e_agu,
@@ -148,7 +148,7 @@ function_tbl : Dict[OpCode, ExecFunc] = {
     Upper_ops.AUIPC: e_auipc,
 
     # Jump instruction
-    Jump_ops.JAL: e_add, # NOTE: Modified
+    Jal_ops.JAL: e_add, # NOTE: Modified
 
     # TODO Misc Mem instruction
     # TODO Atomic instruction

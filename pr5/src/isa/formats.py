@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .enums import *
-from .verify import *
+from ._verify import *
 
 
 @dataclass
@@ -10,7 +10,7 @@ class UnifiedInstruction:
     op: OpCode
     rs1: Optional[int]
     rs2: Optional[int]
-    rd: Optional[int]  
+    rd: Optional[int]
     imm: Optional[int]
 
 
@@ -25,7 +25,7 @@ class Reg:
         verify_reg(self.rd)
         verify_reg(self.rs1)
         verify_reg(self.rs2)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -53,7 +53,7 @@ class Imm:
         verify_reg(self.rd)
         verify_reg(self.rs1)
         verify_imm12(self.imm)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -69,6 +69,35 @@ class Imm:
 
 
 @dataclass(frozen=True)
+class Jalr:
+    op: Jalr_ops
+    rd: int
+    rs1: int
+    imm: int
+    # encoded as -2048 <= imm <= 2047  (2**11 = 2048)
+    # actual same as encoded
+
+    def __post_init__(self):
+        verify_reg(self.rd)
+        verify_reg(self.rs1)
+        verify_imm12(self.imm)
+
+    def get_unified(self):
+        return UnifiedInstruction(
+            op=self.op,
+            rs1=self.rs1,
+            rs2=None,
+            rd=self.rd,
+            imm=self.imm
+        )
+
+    def __str__(self):
+        # op    rd, rs1, imm
+        return f"{self.op} \tx{self.rd}, x{self.rs1}, {self.imm}"
+
+
+
+@dataclass(frozen=True)
 class Load:
     op: Load_ops
     rd: int
@@ -81,7 +110,7 @@ class Load:
         verify_reg(self.rd)
         verify_reg(self.rs1)
         verify_imm12(self.imm)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -109,7 +138,7 @@ class Store:
         verify_reg(self.rs1)
         verify_reg(self.rs2)
         verify_imm12(self.imm)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -138,7 +167,7 @@ class Branch:
         verify_reg(self.rs2)
         verify_2b_align(self.imm)
         verify_imm12(self.imm // 2)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -163,7 +192,7 @@ class Upper:
     def __post_init__(self):
         verify_reg(self.rd)
         verify_uimm20(self.imm)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -179,8 +208,8 @@ class Upper:
 
 
 @dataclass(frozen=True)
-class Jump:
-    op: Jump_ops
+class Jal:
+    op: Jal_ops
     rd: int
     imm: int
     # encoded as -524288 <= imm <= 524287   (2**19 = 524288)
@@ -190,7 +219,7 @@ class Jump:
         verify_reg(self.rd)
         verify_imm20(self.imm // 2)
         verify_2b_align(self.imm)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -220,7 +249,7 @@ class Misc_mem:
         verify_uimm4(self.succ)
         verify_uimm4(self.pred)
         verify_uimm4(self.fm)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -276,7 +305,7 @@ class Atomic:
         verify_reg(self.rs2)
         verify_bit(self.aq)
         verify_bit(self.rl)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -304,7 +333,7 @@ class Atomic:
 @dataclass(frozen=True)
 class System:
     op: System_ops
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -358,7 +387,7 @@ class Zicsr_Imm:
         verify_reg(self.rd)
         verify_uimm5(self.uimm)
         verify_uimm12(self.csr)
-    
+
     def get_unified(self):
         return UnifiedInstruction(
             op=self.op,
@@ -376,11 +405,12 @@ class Zicsr_Imm:
 Instruction = Union[
     Reg,
     Imm,
+    Jalr,
     Load,
     Store,
     Branch,
     Upper,
-    Jump,
+    Jal,
     Misc_mem,
     Atomic,
     System,

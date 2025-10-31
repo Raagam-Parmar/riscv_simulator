@@ -187,7 +187,7 @@ class Processor(ABC):
                 if inst.op is Reg_ops.SUB:
                     op2 = -1 * op2
 
-            case Imm() | Store() | Load():
+            case Imm() | Store() | Load() | Jalr():
                 op1 = self.regfile.read(inst.rs1)
                 op2 = inst.imm
 
@@ -215,7 +215,7 @@ class Processor(ABC):
                         op1 = if_id.pc
                         op2 = inst.imm
 
-            case Jump():
+            case Jal():
                 # NOTE pc + imm
                 # e_add functional unit used
                 op1 = if_id.pc
@@ -282,15 +282,9 @@ class Processor(ABC):
                     next_pc = pc + imm
                     pc_src = PCSource.IMM
 
-            case Jump():
+            case Jal() | Jalr():
                 next_pc = result
                 pc_src = PCSource.ALU_OUT
-
-            case Imm():
-                if inst.op is Imm_ops.JALR:
-                    # Unconditional jump
-                    next_pc = result
-                    pc_src = PCSource.ALU_OUT
 
             case _:
                 pass
@@ -479,7 +473,7 @@ class Processor(ABC):
 
                 return
 
-            case Jump():
+            case Jal() | Jalr():
                 rd = inst.rd
                 v_rd = pc + 4
                 self.regfile.write(rd, v_rd)
@@ -487,12 +481,7 @@ class Processor(ABC):
 
             case Imm():
                 rd = inst.rd
-
-                match inst.op:
-                    case Imm_ops.JALR:
-                        v_rd = pc + 4
-                    case _:
-                        v_rd = result
+                v_rd = result
 
                 self.regfile.write(rd, v_rd)
                 self.logr.debug(f"[W] Written {hex(v_rd)} to x{rd}")

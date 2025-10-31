@@ -27,10 +27,17 @@ msb_field = Field(31, 31)
 
 
 # Imm instruction
-# Base ISA Immediate Operations and JALR
+# Base ISA Immediate Operations
 # +-------------------+------+---------+------------+-----------+
 # | imm [11:0]        | rs1  | funct3  |  rd        |  opcode   |
 # +-------------------+------+---------+------------+-----------+
+
+# Jalr instruction
+# Base ISA Immediate Operations
+# +-------------------+------+---------+------------+-----------+
+# | imm [11:0]        | rs1  | funct3  |  rd        |  opcode   |
+# +-------------------+------+---------+------------+-----------+
+
 
 # Load instruction
 #  Base ISA Load operations
