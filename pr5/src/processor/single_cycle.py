@@ -1,7 +1,7 @@
-from ram import RAM
-from .processor import Processor
-from logger import PR5Logger
-from stats import Statistics
+from src.hardware.ram import RAM
+from src.processor.base import Processor
+from src.utils.logger import PR5Logger
+from src.utils.stats import Statistics
 
 class SingleCycleProcessor(Processor):
     def __init__(self, start: int, ram: RAM, logger: PR5Logger, stat: Statistics):

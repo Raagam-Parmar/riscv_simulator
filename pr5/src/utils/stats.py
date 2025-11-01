@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Union
 
-from logger import PR5Logger
+from src.utils.logger import PR5Logger
 
 
 class Statistics:

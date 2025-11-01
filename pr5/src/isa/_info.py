@@ -107,3 +107,96 @@
 # +--------------------------+-------+----------+----------+-----------+
 # |            csr           | uimm  |  funct3  |  rd      |  1110011  |
 # +--------------------------+-------+----------+----------+-----------+
+
+
+"""
+# RISC-V Instruction Opcodes
+Enumeration classes defining opcodes for all RISC-V instruction types.
+
+|      Enum       | Format |               Description                    |
+|-----------------|--------|----------------------------------------------|
+| `Reg_ops`       |   R    | register-register instruction                |
+| `Imm_ops`       |   I    | register-immediate instruction               |
+| `Jalr_ops`      |   I    | jump-and-link-register instruction           |
+| `Load_ops`      |   I    | memory load instruction                      |
+| `Store_ops`     |   S    | memory store instruction                     |
+| `Branch_ops`    |   B    | conditional branch instruction               |
+| `Upper_ops`     |   U    | upper immediate instruction                  |
+| `Jal_ops`       |   J    | jump-and-link instruction                    |
+| `Misc_mem_ops`  |        | miscellaneous memory instruction             |
+| `Atomic_ops`    |   R    | atomic instruction                           |
+| `System_ops`    |   I    | system / environment instruction             |
+| `Zicsr_ops`     |   R    | CSR modifying register-register instruction  |
+| `Zicsr_imm_ops` |        | CSR modifying register-immediate instruction |
+"""
+
+# @dataclass
+# class UnifiedInstruction:
+#     op: OpCode
+#     rs1: Optional[int]
+#     rs2: Optional[int]
+#     rd: Optional[int]
+#     imm: Optional[int]
+
+
+
+
+
+
+
+
+# const = Field(31, 7)
+# """
+# **For constant instruction**: Bits 31 to 7 of an instruction
+# """
+# Misc Mem instruction
+# Base ISA Misc Mem Instructions (FENCE, FENCE.TSO, PAUSE)
+# +--------+---------+--------+-------+-------+------+-----------+
+# |   fm   |  pred   | succ   |  rs1  |  000  |  rd  |  0001111  |
+# +--------+---------+--------+-------+-------+------+-----------+
+# mm_fm_field = Field(31, 28)
+# mm_pred_field = Field(27, 24)
+# mm_succ_field = Field(23, 20)
+# mm_const_field = const
+
+
+# # Atomic instruction
+# # Atomic Extension (R-type instructions)
+# # +--------+----+----+-------+------+---------+------------+-----------+
+# # | funct5 | aq | rl |  rs2  | rs1  |  010    |  rd        |  0101111  |
+# # +--------+----+----+-------+------+---------+------------+-----------+
+# a_fun5_field = Field(31, 27)
+# a_aq_field = Field(26, 26)
+# a_rl_field = Field(25, 25)
+
+
+# # Environment instruction
+# # Base ISA System Instructions (ECALL, EBREAK)
+# # Some of Priviledged ISA instructions (SRET, MRET, MNRET, WFI)
+# # +-----------------+--------+-------+----------+----------+-----------+
+# # |   funct7        |  rs2   |  rs1  |  funct3  |  rd      |  1110011  |
+# # +-----------------+--------+-------+----------+----------+-----------+
+# sys_const_field = const
+
+
+# # Upper Immediate instruction
+# # Base ISA U-type instructions (LUI, AUIPC)
+# # +------------------------------------+------------+----------+
+# # |            imm[31:12]              |     rd     |  opcode  |
+# # +------------------------------------+------------+----------+
+
+
+# # Zicsr instruction
+# # Zicsr Extension (R-type instructions)
+# # +--------------------------+-------+----------+----------+-----------+
+# # |            csr           | rs1   |  funct3  |  rd      |  1110011  |
+# # +--------------------------+-------+----------+----------+-----------+
+# csr_field = i_imm
+
+
+# # Zicsr Immediate instruction
+# # Zicsr Extension (I-type instructions)
+# # +--------------------------+-------+----------+----------+-----------+
+# # |            csr           | uimm  |  funct3  |  rd      |  1110011  |
+# # +--------------------------+-------+----------+----------+-----------+
+# csr_uimm_field = rs1

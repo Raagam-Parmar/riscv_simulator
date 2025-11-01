@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Union
 
-import ram as ram
+import src.hardware.ram as ram
 
 
 def load(ram: ram.RAM, r5ob_path: Union[str, Path], start_addr: int) -> int:
@@ -12,7 +12,7 @@ def load(ram: ram.RAM, r5ob_path: Union[str, Path], start_addr: int) -> int:
     :param r5ob_path: Path to the r5ob binary
     :param start_addr: RAM start address for loading binary
 
-    :returns: Number of bytes written to the RAM
+    :return: Number of bytes written to the RAM
     """
 
     offset = start_addr

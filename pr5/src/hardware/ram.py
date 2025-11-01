@@ -1,8 +1,8 @@
-from logger import PR5Logger
 from typing import Dict
-from utils.pretty import pp_word
 
-import utils.bits as bits
+from src.utils.logger import PR5Logger
+from src.utils.pretty import pp_word
+from src.utils import bits
 
 
 class AddressOutOfRange(Exception):

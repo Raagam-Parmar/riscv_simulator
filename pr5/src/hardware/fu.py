@@ -1,6 +1,7 @@
 from typing import Callable
-from utils.bits import sign_extend
-from utils.constants import XWIDTH
+
+from src.utils.bits import sign_extend
+from src.utils.constants import XWIDTH
 
 
 ExecFunc = Callable[[int, int], int]

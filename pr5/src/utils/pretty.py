@@ -1,19 +1,14 @@
-# Pretty printers
-
-
 def pp_word(
     word: int, width: int, delimit: str = " ", little_endian: bool = True
 ) -> str:
     """Returns pretty printed word (4 bytes, width of one byte is `width`)
 
-    Args:
-        word (int): Word to pretty print
-        width (int): Width of one byte (one quarter of a word)
-        delimit (str, optional): Delimit symbol after every byte. Defaults to ' '.
-        little_endian (bool, optional): Print in little endian?. Defaults to True.
+    :param word: Word to pretty print
+    :param width: Width of one byte (one quarter of a word)
+    :param delimit: Delimit symbol after every byte. Defaults to ' '.
+    :param little_endian: Print in little endian?. Defaults to True.
 
-    Returns:
-        str: Pretty printed word
+    :return: Pretty printed word
     """
     pp: str = ""
 

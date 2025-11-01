@@ -1,17 +1,18 @@
 from abc import ABC, abstractmethod
+from enum import Enum, auto
+from dataclasses import dataclass
+from typing import Optional
 
-from ram import RAM
-from logger import PR5Logger
-from utils.constants import XWIDTH
+from src.hardware.ram import RAM
+from src.utils.logger import PR5Logger
+from src.utils.constants import XWIDTH
 
-from decode.disassembler import disassemble_error
-from isa.formats import *
-from isa.enums import *
-from .reg import *
-from .pc import *
-from decode.fields import *
-from .alu_tables import *
-from utils.bits import sign_extend
+from src.disassembler import disassemble_error
+from src.isa.instructions import *
+from src.isa.opcodes import *
+from src.hardware.reg import *
+from src.hardware.alu_tables import *
+from src.utils.bits import sign_extend
 
 # TODO Remove regfile read in store stage
 # instead pass the v_rs2 value down the pipeline
@@ -180,14 +181,14 @@ class Processor(ABC):
         """
 
         match inst:
-            case Reg():
+            case Reg_reg():
                 op1 = self.regfile.read(inst.rs1)
                 op2 = self.regfile.read(inst.rs2)
 
-                if inst.op is Reg_ops.SUB:
+                if inst.op is Reg_reg_ops.SUB:
                     op2 = -1 * op2
 
-            case Imm() | Store() | Load() | Jalr():
+            case Reg_imm() | Store() | Load() | Jalr():
                 op1 = self.regfile.read(inst.rs1)
                 op2 = inst.imm
 
@@ -202,14 +203,14 @@ class Processor(ABC):
                         op1 = sign_extend(op1, XWIDTH)
                         op2 = sign_extend(op2, XWIDTH)
 
-            case Upper():
+            case Upper_imm():
                 match inst.op:
-                    case Upper_ops.LUI:
+                    case Upper_imm_ops.LUI:
                         # NOTE imm << 12
                         # e_sll functional unit used
                         op1 = inst.imm
                         op2 = 12
-                    case Upper_ops.AUIPC:
+                    case Upper_imm_ops.AUIPC:
                         # NOTE pc + (imm << 12)
                         # e_auipc functional unit used
                         op1 = if_id.pc
@@ -479,7 +480,7 @@ class Processor(ABC):
                 self.regfile.write(rd, v_rd)
                 return
 
-            case Imm():
+            case Reg_imm():
                 rd = inst.rd
                 v_rd = result
 

@@ -1,48 +1,63 @@
+# TODO Verify.
+
 from typing import Union, TypeGuard
-from .formats import (
-    Instruction,
-    Reg,
-    Jalr,
-    Imm,
+
+from src.isa.instructions import *
+
+Instruction_with_rs1 = Union[
+    Reg_reg, Reg_imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr_reg_reg
+]
+
+Instruction_with_rs2 = Union[Reg_reg, Store, Branch, Atomic]
+
+Instruction_with_rd = Union[
+    Reg_reg,
+    Reg_imm,
     Load,
-    Store,
-    Branch,
-    Upper,
+    Upper_imm,
     Jal,
     Misc_mem,
     Atomic,
-    # System,
-    Zicsr,
-    Zicsr_Imm,
-)
-
-Instruction_with_rs1 = Union[Reg, Imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr]
-
-Instruction_with_rs2 = Union[Reg, Store, Branch, Atomic]
-
-Instruction_with_rd = Union[
-    Reg, Imm, Load, Upper, Jal, Misc_mem, Atomic, Zicsr, Zicsr_Imm
+    Zicsr_reg_reg,
+    Zicsr_reg_imm,
 ]
 
-Instruction_with_imm = Union[Imm, Load, Store, Branch, Upper, Jal, Zicsr_Imm]
+Instruction_with_imm = Union[
+    Reg_imm, Load, Store, Branch, Upper_imm, Jal, Zicsr_reg_imm
+]
 
 
 def has_rs1(inst: Instruction) -> TypeGuard[Instruction_with_rs1]:
-    return isinstance(inst, (Reg, Imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr))
+    return isinstance(
+        inst, (Reg_reg, Reg_imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr_reg_reg)
+    )
 
 
 def has_rs2(inst: Instruction) -> TypeGuard[Instruction_with_rs2]:
-    return isinstance(inst, (Reg, Store, Branch, Atomic))
+    return isinstance(inst, (Reg_reg, Store, Branch, Atomic))
 
 
 def has_rd(inst: Instruction) -> TypeGuard[Instruction_with_rd]:
     return isinstance(
-        inst, (Reg, Imm, Load, Upper, Jal, Misc_mem, Atomic, Zicsr, Zicsr_Imm)
+        inst,
+        (
+            Reg_reg,
+            Reg_imm,
+            Load,
+            Upper_imm,
+            Jal,
+            Misc_mem,
+            Atomic,
+            Zicsr_reg_reg,
+            Zicsr_reg_imm,
+        ),
     )
 
 
 def has_imm(inst: Instruction) -> TypeGuard[Instruction_with_imm]:
-    return isinstance(inst, (Imm, Load, Store, Branch, Upper, Jal, Zicsr_Imm))
+    return isinstance(
+        inst, (Reg_imm, Load, Store, Branch, Upper_imm, Jal, Zicsr_reg_imm)
+    )
 
 
 def modifies_pc(inst: Instruction) -> bool:

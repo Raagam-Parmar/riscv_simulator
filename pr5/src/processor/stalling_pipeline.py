@@ -4,12 +4,12 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from ram import RAM
-from logger import PR5Logger
-from stats import Statistics
-from .processor import *
-from decode.disassembler import disassemble_error
-from isa.properties import *
+from src.hardware.ram import RAM
+from src.utils.logger import PR5Logger
+from src.utils.stats import Statistics
+from src.processor.base import *
+from src.disassembler import disassemble_error
+from src.isa.properties import *
 
 
 @dataclass(frozen=True)

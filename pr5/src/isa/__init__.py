@@ -22,12 +22,8 @@ library. Unsuppported opcode cells are left blank.
 |        11 |           |  BRANCH |  JALR   |         |    JAL    |  SYSTEM |         |         |         |
 
 See: [RV32/64G Instruction Set Listings](https://docs.riscv.org/reference/isa/unpriv/rv-32-64g.html)
-
-
-## Instructions Listing (src.isa.enums)
 """
 
-from .enums import *
-from .formats import *
-from .properties import *
-from .tables import *
+from src.isa.formats import *
+from src.isa.instructions import *
+from src.isa.opcodes import *
