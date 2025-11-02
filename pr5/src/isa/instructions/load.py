@@ -1,23 +1,25 @@
+"""
+# Load Instructions
+```
+31                                20 19          15 14    12 11           7 6             0
++-----------------------------------+--------------+--------+--------------+--------------+
+|             imm[11:0]             |     rs1      | funct3 |      rd      |   0000011    |
++-----------------------------------+--------------+--------+--------------+--------------+
+```
+"""
+
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 from src.isa.instructions._verify import verify_reg, verify_imm12
-from src.isa.formats import i_type
 from src.utils.bits import sign_extend
+from src.utils.field import Field
 
 
 class Load_ops(Enum):
     """
-    Opcodes for memory-load instruction.
-
-    ### Format
-    ```
-    31                     20 19   15 14      12 11            7 6         0
-    +------------------------+-------+----------+---------------+-----------+
-    |       imm[11:0]        |  rs1  |  funct3  |      rd       |  0000011  |
-    +------------------------+-------+----------+---------------+-----------+
-    ```
+    Opcodes for load instruction.
 
     ### Opcodes (RV32-I)
     - `LB`
@@ -42,6 +44,10 @@ class Load_ops(Enum):
 
 @dataclass(frozen=True)
 class Load:
+    """
+    Datatype for load instructions
+    """
+
     op: Load_ops
     rd: int
     rs1: int
@@ -74,18 +80,53 @@ load_tbl: Dict[int, Load_ops] = {
     0b101: Load_ops.LHU,
 }
 """
-Maps funct3 to load opcodes
+Maps `funct3` to load opcodes
 """
 
 
-def disassemble_load(inst: int) -> Optional[Load]:
-    fun3 = i_type.funct3.extract(inst)
+_imm = Field(31, 20)
+"""
+**I-Type immediate**: Bits 31 to 20 of an instruction
+"""
+
+
+_rs1 = Field(19, 15)
+"""
+**First source register**: Bits 19 to 15 of an instruction
+"""
+
+
+_fun3 = Field(14, 12)
+"""
+**3-bit function code**: Bits 14 to 12 of an instruction
+"""
+
+
+_rd = Field(11, 7)
+"""
+**Destination register**: Bits 11 to 7 of an instruction
+"""
+
+
+_imm_width = _imm.width
+"""
+Width of the I-type immediate field
+"""
+
+
+def decode_load(inst: int) -> Optional[Load]:
+    """
+    Decodes a 32-bit instruction into a `Load` instruction if possible, otherwise
+    returns `None`.
+    """
+
+    fun3 = _fun3.extract(inst)
 
     if fun3 not in load_tbl:
         return None
 
-    rd = i_type.rd.extract(inst)
-    rs1 = i_type.rs1.extract(inst)
-    imm = sign_extend(i_type.i_imm.extract(inst), i_type.i_imm_width)
+    rd = _rd.extract(inst)
+    rs1 = _rs1.extract(inst)
+    imm = sign_extend(_imm.extract(inst), _imm_width)
 
     return Load(load_tbl[fun3], rd, rs1, imm)

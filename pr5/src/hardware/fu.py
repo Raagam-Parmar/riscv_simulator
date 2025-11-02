@@ -1,3 +1,7 @@
+"""
+# Functional Units
+"""
+
 from typing import Callable
 
 from src.utils.bits import sign_extend

@@ -2,7 +2,7 @@ import sys
 
 from src.hardware.ram import RAM
 from src.utils.constants import XWIDTH, BASE_ADDR, BYTE_WIDTH
-from src.disassembler.disassembler import disassemble_op_imm
+from src.disassembler.disassembler import decode_branch
 from src.utils.pretty import pp_word
 import src.utils.logger as logger
 
@@ -43,7 +43,7 @@ def main():
         if inst == 0:
             continue
 
-        diss = disassemble_op_imm(inst)
+        diss = decode_branch(inst)
         pp_inst = pp_word(inst, BYTE_WIDTH, delimit="")
 
         if diss:

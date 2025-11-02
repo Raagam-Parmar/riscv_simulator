@@ -34,13 +34,28 @@ def parse_args():
         "--proc",
         type=str,
         default="SingleCycleProcessor",
-        help="Select processor type (single / pipelined)",
+        help="Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor)"
     )
 
     return parser.parse_args()
 
 
 def run_simulation():
+    """
+    Run a RISC-V processor using arguments read from the command line.
+
+    Command line arguments:
+    - `--start` : Initial program counter in hexadecimal
+
+    Default: `0x80000000`
+    - `--num_insts` : Number of instructions to simulate
+
+    Default: `1000`
+    - `--proc` : Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor)
+
+    Default: `SingleCycleProcessor`
+    """
+
     loggr = logger.setup()
     cmd = "python3 " + " ".join(sys.argv)
     loggr.info(f"Running: {cmd}")

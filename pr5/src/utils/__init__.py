@@ -1,4 +1,6 @@
-"""Foo"""
+"""
+# Utilities
+"""
 
 from src.utils.bits import *
 from src.utils.constants import *

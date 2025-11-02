@@ -1,6 +1,7 @@
 """
-Disassembler for 32-bit RISC-V
-Supported extensions: RV32IMA
+# 32-bit RISC-V Disassembler
+
+Supported extensions: RV32-ZICSR-IMA
 """
 
 from src.disassembler.disassembler import disassemble, disassemble_error

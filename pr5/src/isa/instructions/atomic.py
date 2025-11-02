@@ -1,23 +1,25 @@
+"""
+# Atomic Instructions
+
+```
+31           27 26 25 24          20 19          15 14    12 11           7 6             0
++--------------+--+--+--------------+--------------+--------+--------------+--------------+
+|    funct5    |aq|rl|     rs2      |     rs1      | funct3 |      rd      |   0101111    |
++--------------+--+--+--------------+--------------+--------+--------------+--------------+
+```
+"""
+
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 from src.isa.instructions._verify import verify_reg, verify_bit
-from src.isa.formats import r_type
 from src.utils.field import Field
 
 
 class Atomic_ops(Enum):
     """
     Opcodes for atomic instructions.
-
-    ### Format
-    ```
-    31     27  26   25  24   20 19   15 14      12 11          7 6         0
-    +--------+----+----+-------+-------+----------+-------------+-----------+
-    | funct5 | aq | rl |  rs2  |  rs1  |  funct3  |     rd      |  0101111  |
-    +--------+----+----+-------+-------+----------+-------------+-----------+
-    ```
 
     ### Opcodes (RV32-A)
     - `LR_W` - Load reserved
@@ -54,6 +56,10 @@ class Atomic_ops(Enum):
 
 @dataclass(frozen=True)
 class Atomic:
+    """
+    Datatype for atomic instructions
+    """
+
     op: Atomic_ops
     rd: int
     rs1: int
@@ -91,11 +97,6 @@ class Atomic:
         return f"{show} \tx{self.rd}, x{self.rs2}, (x{self.rs1})"
 
 
-# Atomic instruction
-# Atomic Extension (R-type instructions)
-# +--------+----+----+-------+------+---------+------------+-----------+
-# | funct5 | aq | rl |  rs2  | rs1  |  010    |  rd        |  0101111  |
-# +--------+----+----+-------+------+---------+------------+-----------+
 amo_tbl: Dict[int, Atomic_ops] = {
     0b00010: Atomic_ops.LR_W,
     0b00011: Atomic_ops.SC_W,
@@ -109,6 +110,9 @@ amo_tbl: Dict[int, Atomic_ops] = {
     0b11000: Atomic_ops.AMOMINU_W,
     0b11100: Atomic_ops.AMOMAXU_W,
 }
+"""
+Maps `funct5` to atomic opcodes
+"""
 
 
 a_fun5_field = Field(31, 27)
@@ -129,8 +133,37 @@ a_rl_field = Field(25, 25)
 """
 
 
-def disassemble_amo(inst: int) -> Optional[Atomic]:
-    fun3 = r_type.funct3.extract(inst)
+_fun3 = Field(14, 12)
+"""
+**3-bit function code**: Bits 14 to 12 of an instruction
+"""
+
+
+_rs2 = Field(24, 20)
+"""
+**Second source register**: Bits 24 to 20 of an instruction
+"""
+
+
+_rs1 = Field(19, 15)
+"""
+**First source register**: Bits 19 to 15 of an instruction
+"""
+
+
+_rd = Field(11, 7)
+"""
+**Destination register**: Bits 11 to 7 of an instruction
+"""
+
+
+def decode_amo(inst: int) -> Optional[Atomic]:
+    """
+    Decodes a 32-bit instruction into a `Atomic` instruction if possible, otherwise
+    returns `None`.
+    """
+
+    fun3 = _fun3.extract(inst)
 
     if fun3 != 0b010:
         return None
@@ -140,13 +173,13 @@ def disassemble_amo(inst: int) -> Optional[Atomic]:
     if fun5 not in amo_tbl:
         return None
 
-    rs2 = r_type.rs2.extract(inst)
+    rs2 = _rs2.extract(inst)
 
     if (fun5 == 0b00010) and (rs2 != 0b00000):
         return None
 
-    rs1 = r_type.rs1.extract(inst)
-    rd = r_type.rd.extract(inst)
+    rs1 = _rs1.extract(inst)
+    rd = _rd.extract(inst)
     aq = a_aq_field.extract(inst)
     rl = a_rl_field.extract(inst)
 

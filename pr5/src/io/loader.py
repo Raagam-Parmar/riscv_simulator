@@ -1,3 +1,7 @@
+"""
+# Memory Loader
+"""
+
 from pathlib import Path
 from typing import Union
 
@@ -13,6 +17,8 @@ def load(ram: ram.RAM, r5ob_path: Union[str, Path], start_addr: int) -> int:
     :param start_addr: RAM start address for loading binary
 
     :return: Number of bytes written to the RAM
+
+    :raises AddressOutOfRange: If data to be loaded is larger than available memory
     """
 
     offset = start_addr

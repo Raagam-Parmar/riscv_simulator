@@ -11,7 +11,7 @@ from src.disassembler import disassemble_error
 from src.isa.instructions import *
 from src.isa.opcodes import *
 from src.hardware.reg import *
-from src.hardware.alu_tables import *
+from src.hardware.alu import *
 from src.utils.bits import sign_extend
 
 # TODO Remove regfile read in store stage
@@ -399,7 +399,7 @@ class Processor(ABC):
         # current_ps | next_pc | optional rd | optional memory write
 
         match inst:
-            case Branch() | System():
+            case Branch() | Env():
                 self.logr.out(
                     f"{pc:08x} | "
                     + f"next_pc = {next_pc:08x} | "
@@ -489,7 +489,7 @@ class Processor(ABC):
 
                 return
 
-            case Store() | Branch() | System():
+            case Store() | Branch() | Env():
                 self.logr.debug(f"[W] Idle")
                 return
 

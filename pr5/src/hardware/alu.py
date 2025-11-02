@@ -1,3 +1,7 @@
+"""
+# Arithmetic and Logic Unit
+"""
+
 from typing import Dict, Callable, Tuple
 
 from src.isa.opcodes import *
@@ -63,8 +67,8 @@ operands_tbl: Dict[OpCode, OperandFunc] = {
     # TODO Misc Mem instruction
     # TODO Atomic instruction
     # Environment instruction
-    System_ops.ECALL: lambda v_rs1, v_rs2, v_imm, v_pc: (0, 0),  # NOTE: Unimplemented
-    System_ops.EBREAK: lambda v_rs1, v_rs2, v_imm, v_pc: (0, 0),  # NOTE: Unimplemented
+    Env_ops.ECALL: lambda v_rs1, v_rs2, v_imm, v_pc: (0, 0),  # NOTE: Unimplemented
+    Env_ops.EBREAK: lambda v_rs1, v_rs2, v_imm, v_pc: (0, 0),  # NOTE: Unimplemented
     # TODO Zicsr instruction
     # TODO Zicsr Immediate instruction
 }
@@ -126,8 +130,8 @@ function_tbl: Dict[OpCode, ExecFunc] = {
     # TODO Misc Mem instruction
     # TODO Atomic instruction
     # Environment instruction
-    System_ops.ECALL: e_nop,
-    System_ops.EBREAK: e_nop,
+    Env_ops.ECALL: e_nop,
+    Env_ops.EBREAK: e_nop,
     # TODO Zicsr instruction
     # TODO Zicsr Immediate instruction
 }

@@ -5,7 +5,7 @@ from typing import Union, TypeGuard
 from src.isa.instructions import *
 
 Instruction_with_rs1 = Union[
-    Reg_reg, Reg_imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr_reg_reg
+    Reg_reg, Reg_imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr_reg_reg, Jalr
 ]
 
 Instruction_with_rs2 = Union[Reg_reg, Store, Branch, Atomic]
@@ -29,7 +29,7 @@ Instruction_with_imm = Union[
 
 def has_rs1(inst: Instruction) -> TypeGuard[Instruction_with_rs1]:
     return isinstance(
-        inst, (Reg_reg, Reg_imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr_reg_reg)
+        inst, (Reg_reg, Reg_imm, Load, Store, Branch, Misc_mem, Atomic, Zicsr_reg_reg, Jalr)
     )
 
 

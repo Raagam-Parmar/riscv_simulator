@@ -1,3 +1,7 @@
+"""
+# Custom Logger
+"""
+
 import logging
 from typing import Any, cast
 

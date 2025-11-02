@@ -1,3 +1,7 @@
+"""
+# Bit Manipulation Utilities
+"""
+
 # Functions to calculate the range of signed and unsigned numbers,
 # given the width of the storage unit.
 

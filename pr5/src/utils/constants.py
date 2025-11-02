@@ -8,4 +8,4 @@ BASE_ADDR = 0x80000000
 """Base address for loading binary into memory"""
 
 OUT_LEVEL = 25
-"""Custom log level 'OUT' which will be used to print the instruction sequence"""
+"""Custom log level 'OUT which will be used to print the instruction sequence"""

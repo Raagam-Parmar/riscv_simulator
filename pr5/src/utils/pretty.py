@@ -1,3 +1,7 @@
+"""
+# Pretty Printing Utilities
+"""
+
 def pp_word(
     word: int, width: int, delimit: str = " ", little_endian: bool = True
 ) -> str:

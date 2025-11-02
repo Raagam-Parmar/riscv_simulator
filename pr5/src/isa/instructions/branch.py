@@ -1,23 +1,26 @@
+"""
+# Branch Instruction
+
+```
+31                 25 24          20 19          15 14    12 11           7 6             0
++--------------------+--------------+--------------+--------+--------------+--------------+
+|    imm[12|10:5]    |     rs2      |     rs1      | funct3 | imm[4:1|11]  |   1100011    |
++--------------------+--------------+--------------+--------+--------------+--------------+
+```
+"""
+
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 from src.isa.instructions._verify import verify_reg, verify_imm12, verify_2b_align
-from src.isa.formats import b_type
 from src.utils.bits import sign_extend
+from src.utils.field import Field
 
 
 class Branch_ops(Enum):
     """
     Opcodes for branch instruction.
-
-    ### Format
-    ```
-    31             25 24   20 19   15 14      12 11            7 6         0
-    +----------------+-------+-------+----------+---------------+-----------+
-    |  imm[12|10:5]  |  rs2  |  rs1  |  funct3  |  imm[4:1|11]  |  1100011  |
-    +----------------+-------+-------+----------+---------------+-----------+
-    ```
 
     ### Opcodes (RV32-I)
     - `BEQ`
@@ -44,6 +47,10 @@ class Branch_ops(Enum):
 
 @dataclass(frozen=True)
 class Branch:
+    """
+    Datatype for branch instructions
+    """
+
     op: Branch_ops
     rs1: int
     rs2: int
@@ -78,24 +85,81 @@ branch_tbl: Dict[int, Branch_ops] = {
     0b111: Branch_ops.BGEU,
 }
 """
-Maps funct3 to branch ocodes
+Maps `funct3` to branch ocodes
 """
 
 
-def disassemble_branch(inst: int) -> Optional[Branch]:
-    fun3 = b_type.funct3.extract(inst)
+
+_imm_12 = Field(31, 31)
+"""
+**B-Type immediate[12]**: MSB of an instruction
+"""
+
+
+_imm_10_5 = Field(30, 25)
+"""
+**B-Type immediate[10:5]**: Bits 30 to 25 of an instruction
+"""
+
+
+_rs2 = Field(24, 20)
+"""
+**Second source register**: Bits 24 to 20 of an instruction
+"""
+
+
+_rs1 = Field(19, 15)
+"""
+**First source register**: Bits 19 to 15 of an instruction
+"""
+
+
+_fun3 = Field(14, 12)
+"""
+**3-bit function code**: Bits 14 to 12 of an instruction
+"""
+
+
+_imm_4_1 = Field(11, 8)
+"""
+**B-Type immediate[4:1]**: Bits 11 to 8 of an instruction
+"""
+
+
+_imm_11 = Field(7, 7)
+"""
+**B-Type immediate[11]**: Bit 7 of an instruction
+"""
+
+
+
+_imm_width = (_imm_12.width + _imm_10_5.width + _imm_4_1.width + _imm_11.width)
+"""
+Width of the B-type immediate field
+"""
+
+
+
+
+def decode_branch(inst: int) -> Optional[Branch]:
+    """
+    Decodes a 32-bit instruction into a `Branch` instruction if possible, otherwise
+    returns `None`.
+    """
+
+    fun3 = _fun3.extract(inst)
 
     if fun3 not in branch_tbl:
         return None
 
-    rs1 = b_type.rs1.extract(inst)
-    rs2 = b_type.rs2.extract(inst)
-    imm12 = b_type.b_imm_12.extract(inst)
-    imm11 = b_type.b_imm_11.extract(inst)
-    imm10_5 = b_type.b_imm_10_5.extract(inst)
-    imm4_1 = b_type.b_imm_4_1.extract(inst)
+    rs1 = _rs1.extract(inst)
+    rs2 = _rs2.extract(inst)
+    imm12 = _imm_12.extract(inst)
+    imm11 = _imm_11.extract(inst)
+    imm10_5 = _imm_10_5.extract(inst)
+    imm4_1 = _imm_4_1.extract(inst)
 
     imm = imm12 << 12 | imm11 << 11 | imm10_5 << 5 | imm4_1 << 1
-    imm = sign_extend(imm, b_type.b_imm_width)
+    imm = sign_extend(imm, _imm_width)
 
     return Branch(branch_tbl[fun3], rs1, rs2, imm)

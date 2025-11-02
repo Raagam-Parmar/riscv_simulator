@@ -1,7 +1,7 @@
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable, Optional, Union
 
 from src.isa.instructions import *
-from src.isa.formats.r_type import opcode
+from src.utils.field import Field
 
 
 class InvalidInstruction(Exception):
@@ -10,40 +10,71 @@ class InvalidInstruction(Exception):
         super().__init__(self.message)
 
 
+_opcode = Field(6, 0)
+"""
+**Instruction opcode**: Least significant 7 bits of an instruction
+"""
+
+
+def decode_system(inst: int) -> Union[Zicsr_reg_reg, Zicsr_reg_imm, Env, None]:
+    """
+    Decodes a 32-bit instruction into a `System` instruction if possible, otherwise
+    returns `None`.
+    """
+
+    env = decode_env(inst)
+    zicsr_rr = decode_zicsr_reg_reg(inst)
+    zicsr_ri = decode_zicsr_reg_imm(inst)
+
+    if env:
+        return env
+
+    if zicsr_rr:
+        return zicsr_rr
+
+    if zicsr_ri:
+        return zicsr_ri
+
+    return None
+
+
 opcode_tbl: Dict[int, Callable[[int], Optional[Instruction]]] = {
-    0b0000011: disassemble_load,
-    0b0100011: disassemble_store,
-    0b1100011: disassemble_branch,
-    0b1100111: disassemble_jalr,
-    0b0001111: disassemble_misc_mem,
-    0b0101111: disassemble_amo,
-    0b1101111: disassemble_jal,
-    0b0010011: disassemble_op_imm,
-    0b0110011: disassemble_op,
-    0b1110011: disassemble_system,
-    0b0010111: disassemble_auipc,
-    0b0110111: disassemble_lui,
+    0b0000011: decode_load,
+    0b0100011: decode_store,
+    0b1100011: decode_branch,
+    0b1100111: decode_jalr,
+    0b0001111: decode_misc_mem,
+    0b0101111: decode_amo,
+    0b1101111: decode_jal,
+    0b0010011: decode_reg_imm,
+    0b0110011: decode_reg_reg,
+    0b1110011: decode_system,
+    0b0010111: decode_auipc,
+    0b0110111: decode_lui,
 }
 
 
 def disassemble(inst: int) -> Optional[Instruction]:
-    """Disassemble a RISCV instruction.
+    """
+    Disassemble a RISCV instruction
 
     :param inst: Binary-encoded instruction
 
     :return: `None` if the instruction is invalid or unimplemented, otherwise the
     disassembled instruction
     """
-    op = opcode.extract(inst)
 
-    if opcode not in opcode_tbl:
+    op = _opcode.extract(inst)
+
+    if _opcode not in opcode_tbl:
         return None
 
     return opcode_tbl[op](inst)
 
 
 def disassemble_error(inst: int) -> Instruction:
-    """Disassemble a RISCV instruction or raise an error.
+    """
+    Disassemble a RISCV instruction or raise an error
 
     :params inst: Binary-encoded instruction
 
@@ -52,7 +83,7 @@ def disassemble_error(inst: int) -> Instruction:
     :raises InvalidInstruction: if the instruction is invalid or unimplemented.
     """
 
-    op = opcode.extract(inst)
+    op = _opcode.extract(inst)
 
     if op not in opcode_tbl:
         raise InvalidInstruction(inst)

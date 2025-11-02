@@ -1,5 +1,5 @@
 """
-Processor Simulation Top Level
+# RISC-V Simulator Command Line Utilities
 """
 
 from src.cli.simulate import run_simulation

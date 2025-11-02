@@ -1,10 +1,23 @@
+"""
+# Registers and Register Files
+"""
+
+
 class InvalidSize(Exception):
+    """
+    Invalid size parameter for register file
+    """
+
     def __init__(self, size: int):
         self.message = f"Size for register file {size} must be positive."
         super().__init__(self.message)
 
 
 class RegisterOutOfBounds(Exception):
+    """
+    Requested register is out of bounds of the register file
+    """
+
     def __init__(self, register: int, size: int):
         self.message = f"Can not write to out-of-bounds register {register} on register file of size {size}."
         super().__init__(self.message)

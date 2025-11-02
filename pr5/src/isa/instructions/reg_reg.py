@@ -1,22 +1,24 @@
+"""
+# Register-Register Arithmetic Instructions
+
+```
+31                 25 24          20 19          15 14    12 11           7 6             0
++--------------------+--------------+--------------+--------+--------------+--------------+
+|       funct7       |     rs2      |     rs1      | funct3 |      rd      |   0110011    |
++--------------------+--------------+--------------+--------+--------------+--------------+
+```
+"""
+
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Dict, Tuple, Optional
 
 from src.isa.instructions._verify import verify_reg
-from src.isa.formats import r_type
-
+from src.utils.field import Field
 
 class Reg_reg_ops(Enum):
     """
     Opcodes for register-register instructions.
-
-    ###  Format
-    ```
-    31             25 24   20 19   15 14      12 11            7 6         0
-    +----------------+-------+-------+----------+---------------+-----------+
-    |     funct7     |  rs2  |  rs1  |  funct3  |      rd       |  0110011  |
-    +----------------+-------+-------+----------+---------------+-----------+
-    ```
 
     ### Opcodes (RV32-I)
     - `ADD`
@@ -70,6 +72,10 @@ class Reg_reg_ops(Enum):
 
 @dataclass(frozen=True)
 class Reg_reg:
+    """
+    Datatype for register-register arithmetic instructions
+    """
+
     op: Reg_reg_ops
     rd: int
     rs1: int
@@ -92,7 +98,7 @@ class Reg_reg:
         return f"{self.op} \tx{self.rd}, x{self.rs1}, x{self.rs2}"
 
 
-op_tbl: Dict[Tuple[int, int], Reg_reg_ops] = {
+f3_f7_tbl: Dict[Tuple[int, int], Reg_reg_ops] = {
     # RV32-I
     (0b000, 0b0000000): Reg_reg_ops.ADD,
     (0b000, 0b0100000): Reg_reg_ops.SUB,
@@ -115,31 +121,56 @@ op_tbl: Dict[Tuple[int, int], Reg_reg_ops] = {
     (0b111, 0b0000001): Reg_reg_ops.REMU,
 }
 """
-Maps (funct3, funct7) pairs to register-register opcodes
+Maps `(funct3, funct7)` to register-register opcodes
 """
 
 
-def disassemble_op(inst: int) -> Optional[Reg_reg]:
+_fun7 = Field(31, 25)
+"""
+**7-bit function code**: Bits 31 to 25 of an instruction
+"""
+
+
+_rs2 = Field(24, 20)
+"""
+**Second source register**: Bits 24 to 20 of an instruction
+"""
+
+
+_rs1 = Field(19, 15)
+"""
+**First source register**: Bits 19 to 15 of an instruction
+"""
+
+
+_fun3 = Field(14, 12)
+"""
+**3-bit function code**: Bits 14 to 12 of an instruction
+"""
+
+
+_rd = Field(11, 7)
+"""
+**Destination register**: Bits 11 to 7 of an instruction
+"""
+
+
+def decode_reg_reg(inst: int) -> Optional[Reg_reg]:
     """
-    Disassemble a 32-bit instruction into register-register instruction.
-
-    :param inst: 32-bit instruction
-
-    :return: Register-register instruction if `inst` is a valid register-register
-    instruction, otherwise `None`.
+    Decodes a 32-bit instruction into a `Reg_reg` instruction if possible, otherwise
+    returns `None`.
     """
 
-    fun3 = r_type.funct3.extract(inst)
-    fun7 = r_type.funct7.extract(inst)
+    fun3 = _fun3.extract(inst)
+    fun7 = _fun7.extract(inst)
 
     pair = (fun3, fun7)
 
-    if pair not in op_tbl:
+    if pair not in f3_f7_tbl:
         return None
 
-    rd = r_type.rd.extract(inst)
-    rs1 = r_type.rs1.extract(inst)
-    rs2 = r_type.rs2.extract(inst)
+    rd = _rd.extract(inst)
+    rs1 = _rs1.extract(inst)
+    rs2 = _rs2.extract(inst)
 
-    return Reg_reg(op_tbl[pair], rd, rs1, rs2)
-
+    return Reg_reg(f3_f7_tbl[pair], rd, rs1, rs2)
