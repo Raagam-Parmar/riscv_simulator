@@ -45,6 +45,8 @@ def run_simulation():
     Run a RISC-V processor using arguments read from the command line.
 
     Command line arguments:
+    - `r5ob_path` : Path to the input r5ob file
+
     - `--start` : Initial program counter in hexadecimal
 
     Default: `0x80000000`

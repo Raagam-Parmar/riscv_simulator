@@ -16,20 +16,17 @@
 *.json
 trace/
 stats/
+docs/
 
 # Temporary files
-_planning.md
-_pipeline_planning.md
 _temps
 
 # Python cache
-**/__pycache__/****/__pycache__/**
+# **/__pycache__/****/__pycache__/**
+__pycache__
 
 # Ignore flag on files
 _ignore*.*
-
-# Unfinished files
-proper_pipelined_processor.py
 
 # Plans and TODOs
 plans.md
