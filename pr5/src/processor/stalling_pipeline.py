@@ -1,6 +1,3 @@
-# TODO register should not be 0 for data hazard
-# TODO use my custom pretty printer instead of hex
-
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -59,9 +56,9 @@ class PipelinedProcessor(Processor):
         super().__init__(start, ram, logger)
         self.stats = stats
 
-    def _hazard_raw(self, latches: PipelineLatches) -> Optional[PipelineControl]:
+    def _hazard_data(self, latches: PipelineLatches) -> Optional[PipelineControl]:
         """
-        Given the CPU state, checks if there is a RAW dependency.
+        Given the CPU state, checks if there is a RAW or load-use dependency.
 
         :param latches: The current state of the pipelined CPU
 
@@ -89,15 +86,15 @@ class PipelinedProcessor(Processor):
         )
 
         if id_ex is not None and has_rd(id_ex.inst):
-            if (has_rs1(dis) and (dis.rs1 == id_ex.inst.rd)) or (
-                has_rs2(dis) and (dis.rs2 == id_ex.inst.rd)
+            if (has_rs1(dis) and (dis.rs1 == id_ex.inst.rd) and (dis.rs1 != 0)) or (
+                has_rs2(dis) and (dis.rs2 == id_ex.inst.rd) and (dis.rs2 != 0)
             ):
                 self.logr.debug("    RAW hazard: IF/ID and ID/EX")
                 return pipeline_control
 
         if ex_mem is not None and has_rd(ex_mem.inst):
-            if (has_rs1(dis) and (dis.rs1 == ex_mem.inst.rd)) or (
-                has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd)
+            if (has_rs1(dis) and (dis.rs1 == ex_mem.inst.rd) and (dis.rs1 != 0)) or (
+                has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd) and (dis.rs1 != 0)
             ):
                 self.logr.debug("    RAW hazard: IF/ID and EX/MEM")
                 return pipeline_control
@@ -164,7 +161,7 @@ class PipelinedProcessor(Processor):
 
         self.logr.debug("[H] Detected hazards:")
 
-        hazard_raw = self._hazard_raw(latches)
+        hazard_raw = self._hazard_data(latches)
         hazard_control = self._hazard_control(latches)
 
         hazard_safe = PipelineControl(
@@ -183,7 +180,7 @@ class PipelinedProcessor(Processor):
 
         return hazard_safe
 
-    def fetch_pipelined(
+    def fetch_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
     ) -> Optional[IF_ID_Latch]:
         """
@@ -209,7 +206,7 @@ class PipelinedProcessor(Processor):
             case LatchControl.CONTD:
                 return self.fetch(pc_if)
 
-    def decode_pipelined(
+    def decode_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
     ) -> Optional[ID_EX_Latch]:
         """
@@ -240,7 +237,7 @@ class PipelinedProcessor(Processor):
                 dis = self.decode(if_id)
                 return self.operand_fetch(dis, if_id)
 
-    def execute_pipelined(
+    def execute_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
     ) -> Optional[EX_MEM_Latch]:
         """
@@ -270,7 +267,7 @@ class PipelinedProcessor(Processor):
 
                 return self.execute(id_ex)
 
-    def mem_access_pipelined(
+    def mem_access_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
     ) -> Optional[MEM_WB_Latch]:
         """
@@ -300,7 +297,7 @@ class PipelinedProcessor(Processor):
 
                 return self.mem_access(ex_mem)
 
-    def update_pc_pipelined(
+    def update_pc_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
     ) -> PC_IF_Latch:
         """
@@ -408,11 +405,11 @@ class PipelinedProcessor(Processor):
             controls = self.hazard_detection_unit(latches)
 
             self.writeback_pipelined(latches)
-            next_if_id = self.fetch_pipelined(latches, controls)
-            next_id_ex = self.decode_pipelined(latches, controls)
-            next_ex_mem = self.execute_pipelined(latches, controls)
-            next_mem_wb = self.mem_access_pipelined(latches, controls)
-            next_pc_if = self.update_pc_pipelined(latches, controls)
+            next_if_id = self.fetch_controlled(latches, controls)
+            next_id_ex = self.decode_controlled(latches, controls)
+            next_ex_mem = self.execute_controlled(latches, controls)
+            next_mem_wb = self.mem_access_controlled(latches, controls)
+            next_pc_if = self.update_pc_controlled(latches, controls)
 
             if curr_mem_wb is not None:
                 self.log_instruction(curr_mem_wb, next_pc_if)
