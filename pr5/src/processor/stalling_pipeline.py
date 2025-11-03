@@ -7,6 +7,8 @@ from src.utils.stats import Statistics
 from src.processor.base import *
 from src.disassembler import disassemble_error
 from src.isa.properties import *
+from src.utils.pretty import pp_word
+from src.utils.constants import BYTE_WIDTH
 
 
 @dataclass(frozen=True)
@@ -358,11 +360,31 @@ class PipelinedProcessor(Processor):
         curr_ex_mem = latches.ex_mem
         curr_mem_wb = latches.mem_wb
 
-        pretty_pc_if = hex(curr_pc_if.pc) if curr_pc_if else "( )"
-        pretty_if_id = hex(curr_if_id.pc) if curr_if_id else "( )"
-        pretty_id_ex = hex(curr_id_ex.pc) if curr_id_ex else "( )"
-        pretty_ex_mem = hex(curr_ex_mem.pc) if curr_ex_mem else "( )"
-        pretty_mem_wb = hex(curr_mem_wb.pc) if curr_mem_wb else "( )"
+        pretty_pc_if = (
+            pp_word(curr_pc_if.pc, BYTE_WIDTH, delimit="", prefix="0x")
+            if curr_pc_if
+            else "( )"
+        )
+        pretty_if_id = (
+            pp_word(curr_if_id.pc, BYTE_WIDTH, delimit="", prefix="0x")
+            if curr_if_id
+            else "( )"
+        )
+        pretty_id_ex = (
+            pp_word(curr_id_ex.pc, BYTE_WIDTH, delimit="", prefix="0x")
+            if curr_id_ex
+            else "( )"
+        )
+        pretty_ex_mem = (
+            pp_word(curr_ex_mem.pc, BYTE_WIDTH, delimit="", prefix="0x")
+            if curr_ex_mem
+            else "( )"
+        )
+        pretty_mem_wb = (
+            pp_word(curr_mem_wb.pc, BYTE_WIDTH, delimit="", prefix="0x")
+            if curr_mem_wb
+            else "( )"
+        )
 
         self.logr.debug(f"PC/IF  {pretty_pc_if}")
         self.logr.debug(f"IF/ID  {pretty_if_id}")
