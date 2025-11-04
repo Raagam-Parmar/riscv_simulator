@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from src.utils.bits import unsigned_max, unsigned_min, sign_extend
 
-
 UINT64_WIDTH = 64
 """
 Width of 64-bit unsigned integer
@@ -40,7 +39,7 @@ class UInt64:
 
     def unsigned_int(self) -> int:
         """
-        Returns the unsigned value as an equivalent Python integer
+        Returns the equivalent Python integer
         """
 
         return self.value
@@ -48,45 +47,137 @@ class UInt64:
     # -------------------------------------------------------------------------------- #
     # Arithmetic Operations
 
-    def __add__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value + other.value)
-
-    def __sub__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value - other.value)
-
-    def __mul__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value * other.value)
-
-    def __floordiv__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value // other.value)
-
-    def __mod__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value % other.value)
-
     def __neg__(self) -> UInt64:
         return UInt64(-1 * self.value)
+
+    def __add__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value + other_value)
+
+    def __iadd__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value + other_value)
+
+    def __radd__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value + other_value)
+
+    def __sub__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value - other_value)
+
+    def __isub__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value - other_value)
+
+    def __rsub__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value - other_value)
+
+    def __mul__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value * other_value)
+
+    def __imul__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value * other_value)
+
+    def __rmul__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value * other_value)
+
+    def __floordiv__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value // other_value)
+
+    def __ifloordiv__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value // other_value)
+
+    def __rfloordiv__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value // other_value)
+
+    def __mod__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value % other_value)
+
+    def __imod__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value % other_value)
+
+    def __rmod__(self, other: UInt64 | int) -> UInt64:
+        other_value = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value % other_value)
 
     # -------------------------------------------------------------------------------- #
     # Bitwise Operations
 
-    def __and__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value & other.value)
-
-    def __or__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value | other.value)
-
     def __invert__(self) -> UInt64:
         return UInt64(self.value ^ UINT64_MAX)
 
-    def __xor__(self, other: UInt64) -> UInt64:
-        return UInt64(self.value ^ other.value)
+    def __and__(self, other: UInt64 | int) -> UInt64:
+        and_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value & and_with)
+
+    def __iand__(self, other: UInt64 | int) -> UInt64:
+        and_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value & and_with)
+
+    def __rand__(self, other: UInt64 | int) -> UInt64:
+        and_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value & and_with)
+
+    def __or__(self, other: UInt64 | int) -> UInt64:
+        or_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value | or_with)
+
+    def __ior__(self, other: UInt64 | int) -> UInt64:
+        or_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value | or_with)
+
+    def __ror__(self, other: UInt64 | int) -> UInt64:
+        or_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value | or_with)
+
+    def __xor__(self, other: UInt64 | int) -> UInt64:
+        xor_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value | xor_with)
+
+    def __ixor__(self, other: UInt64 | int) -> UInt64:
+        xor_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value | xor_with)
+
+    def __rxor__(self, other: UInt64 | int) -> UInt64:
+        xor_with = other.value if isinstance(other, UInt64) else other
+        return UInt64(self.value | xor_with)
 
     def __lshift__(self, other: UInt64 | int) -> UInt64:
         shift = other.value if isinstance(other, UInt64) else other
         shift &= 0b111111
         return UInt64(self.value << shift)
 
+    def __ilshift__(self, other: UInt64 | int) -> UInt64:
+        shift = other.value if isinstance(other, UInt64) else other
+        shift &= 0b111111
+        return UInt64(self.value << shift)
+
+    def __rlshift__(self, other: UInt64 | int) -> UInt64:
+        shift = other.value if isinstance(other, UInt64) else other
+        shift &= 0b111111
+        return UInt64(self.value << shift)
+
     def __rshift__(self, other: UInt64 | int) -> UInt64:
+        shift = other.value if isinstance(other, UInt64) else other
+        shift &= 0b111111
+        return UInt64(self.value >> shift)
+
+    def __irshift__(self, other: UInt64 | int) -> UInt64:
+        shift = other.value if isinstance(other, UInt64) else other
+        shift &= 0b111111
+        return UInt64(self.value >> shift)
+
+    def __rrshift__(self, other: UInt64 | int) -> UInt64:
         shift = other.value if isinstance(other, UInt64) else other
         shift &= 0b111111
         return UInt64(self.value >> shift)

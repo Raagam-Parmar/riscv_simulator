@@ -1,5 +1,5 @@
 """
-# C-like 32-bit and 64-bit Integers
+# C-like Integers
 """
 
 from src.utils.cint.uint8 import UInt8

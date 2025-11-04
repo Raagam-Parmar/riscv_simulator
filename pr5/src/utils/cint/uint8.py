@@ -47,28 +47,84 @@ class UInt8:
     # -------------------------------------------------------------------------------- #
     # Arithmetic Operations
 
-    def __add__(self, other: UInt8) -> UInt8:
-        return UInt8(self.value + other.value)
-
-    def __sub__(self, other: UInt8) -> UInt8:
-        return UInt8(self.value - other.value)
-
-    def __mul__(self, other: UInt8) -> UInt8:
-        return UInt8(self.value * other.value)
-
-    def __floordiv__(self, other: UInt8) -> UInt8:
-        return UInt8(self.value // other.value)
-
-    def __mod__(self, other: UInt8) -> UInt8:
-        return UInt8(self.value % other.value)
-
     def __neg__(self) -> UInt8:
         return UInt8(-1 * self.value)
+
+    def __add__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value + other_value)
+
+    def __iadd__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value + other_value)
+
+    def __radd__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value + other_value)
+
+    def __sub__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value - other_value)
+
+    def __isub__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value - other_value)
+
+    def __rsub__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value - other_value)
+
+    def __mul__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value * other_value)
+
+    def __imul__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value * other_value)
+
+    def __rmul__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value * other_value)
+
+    def __floordiv__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value // other_value)
+
+    def __ifloordiv__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value // other_value)
+
+    def __rfloordiv__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value // other_value)
+
+    def __mod__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value % other_value)
+
+    def __imod__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value % other_value)
+
+    def __rmod__(self, other: UInt8 | int) -> UInt8:
+        other_value = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value % other_value)
 
     # -------------------------------------------------------------------------------- #
     # Bitwise Operations
 
+    def __invert__(self) -> UInt8:
+        return UInt8(self.value ^ UINT8_MAX)
+
     def __and__(self, other: UInt8 | int) -> UInt8:
+        and_with = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value & and_with)
+
+    def __iand__(self, other: UInt8 | int) -> UInt8:
+        and_with = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value & and_with)
+
+    def __rand__(self, other: UInt8 | int) -> UInt8:
         and_with = other.value if isinstance(other, UInt8) else other
         return UInt8(self.value & and_with)
 
@@ -76,26 +132,59 @@ class UInt8:
         or_with = other.value if isinstance(other, UInt8) else other
         return UInt8(self.value | or_with)
 
-    def __invert__(self) -> UInt8:
-        return UInt8(self.value ^ UINT8_MAX)
+    def __ior__(self, other: UInt8 | int) -> UInt8:
+        or_with = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value | or_with)
+
+    def __ror__(self, other: UInt8 | int) -> UInt8:
+        or_with = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value | or_with)
 
     def __xor__(self, other: UInt8 | int) -> UInt8:
         xor_with = other.value if isinstance(other, UInt8) else other
         return UInt8(self.value | xor_with)
 
+    def __ixor__(self, other: UInt8 | int) -> UInt8:
+        xor_with = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value | xor_with)
+
+    def __rxor__(self, other: UInt8 | int) -> UInt8:
+        xor_with = other.value if isinstance(other, UInt8) else other
+        return UInt8(self.value | xor_with)
+
     def __lshift__(self, other: UInt8 | int) -> UInt8:
         shift = other.value if isinstance(other, UInt8) else other
-        shift &= 0b11111
+        shift &= 0b111
+        return UInt8(self.value << shift)
+
+    def __ilshift__(self, other: UInt8 | int) -> UInt8:
+        shift = other.value if isinstance(other, UInt8) else other
+        shift &= 0b111
+        return UInt8(self.value << shift)
+
+    def __rlshift__(self, other: UInt8 | int) -> UInt8:
+        shift = other.value if isinstance(other, UInt8) else other
+        shift &= 0b111
         return UInt8(self.value << shift)
 
     def __rshift__(self, other: UInt8 | int) -> UInt8:
         shift = other.value if isinstance(other, UInt8) else other
-        shift &= 0b11111
+        shift &= 0b111
+        return UInt8(self.value >> shift)
+
+    def __irshift__(self, other: UInt8 | int) -> UInt8:
+        shift = other.value if isinstance(other, UInt8) else other
+        shift &= 0b111
+        return UInt8(self.value >> shift)
+
+    def __rrshift__(self, other: UInt8 | int) -> UInt8:
+        shift = other.value if isinstance(other, UInt8) else other
+        shift &= 0b111
         return UInt8(self.value >> shift)
 
     def sra(self, other: UInt8 | int) -> UInt8:
         shift = other.value if isinstance(other, UInt8) else other
-        shift &= 0b11111
+        shift &= 0b111
         signed_val = self.signed_int()
         return UInt8(signed_val >> shift)
 

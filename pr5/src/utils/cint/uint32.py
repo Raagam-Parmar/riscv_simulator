@@ -47,28 +47,84 @@ class UInt32:
     # -------------------------------------------------------------------------------- #
     # Arithmetic Operations
 
-    def __add__(self, other: UInt32) -> UInt32:
-        return UInt32(self.value + other.value)
-
-    def __sub__(self, other: UInt32) -> UInt32:
-        return UInt32(self.value - other.value)
-
-    def __mul__(self, other: UInt32) -> UInt32:
-        return UInt32(self.value * other.value)
-
-    def __floordiv__(self, other: UInt32) -> UInt32:
-        return UInt32(self.value // other.value)
-
-    def __mod__(self, other: UInt32) -> UInt32:
-        return UInt32(self.value % other.value)
-
     def __neg__(self) -> UInt32:
         return UInt32(-1 * self.value)
+
+    def __add__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value + other_value)
+
+    def __iadd__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value + other_value)
+
+    def __radd__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value + other_value)
+
+    def __sub__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value - other_value)
+
+    def __isub__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value - other_value)
+
+    def __rsub__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value - other_value)
+
+    def __mul__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value * other_value)
+
+    def __imul__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value * other_value)
+
+    def __rmul__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value * other_value)
+
+    def __floordiv__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value // other_value)
+
+    def __ifloordiv__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value // other_value)
+
+    def __rfloordiv__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value // other_value)
+
+    def __mod__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value % other_value)
+
+    def __imod__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value % other_value)
+
+    def __rmod__(self, other: UInt32 | int) -> UInt32:
+        other_value = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value % other_value)
 
     # -------------------------------------------------------------------------------- #
     # Bitwise Operations
 
+    def __invert__(self) -> UInt32:
+        return UInt32(self.value ^ UINT32_MAX)
+
     def __and__(self, other: UInt32 | int) -> UInt32:
+        and_with = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value & and_with)
+
+    def __iand__(self, other: UInt32 | int) -> UInt32:
+        and_with = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value & and_with)
+
+    def __rand__(self, other: UInt32 | int) -> UInt32:
         and_with = other.value if isinstance(other, UInt32) else other
         return UInt32(self.value & and_with)
 
@@ -76,10 +132,23 @@ class UInt32:
         or_with = other.value if isinstance(other, UInt32) else other
         return UInt32(self.value | or_with)
 
-    def __invert__(self) -> UInt32:
-        return UInt32(self.value ^ UINT32_MAX)
+    def __ior__(self, other: UInt32 | int) -> UInt32:
+        or_with = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value | or_with)
+
+    def __ror__(self, other: UInt32 | int) -> UInt32:
+        or_with = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value | or_with)
 
     def __xor__(self, other: UInt32 | int) -> UInt32:
+        xor_with = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value | xor_with)
+
+    def __ixor__(self, other: UInt32 | int) -> UInt32:
+        xor_with = other.value if isinstance(other, UInt32) else other
+        return UInt32(self.value | xor_with)
+
+    def __rxor__(self, other: UInt32 | int) -> UInt32:
         xor_with = other.value if isinstance(other, UInt32) else other
         return UInt32(self.value | xor_with)
 
@@ -88,7 +157,27 @@ class UInt32:
         shift &= 0b11111
         return UInt32(self.value << shift)
 
+    def __ilshift__(self, other: UInt32 | int) -> UInt32:
+        shift = other.value if isinstance(other, UInt32) else other
+        shift &= 0b11111
+        return UInt32(self.value << shift)
+
+    def __rlshift__(self, other: UInt32 | int) -> UInt32:
+        shift = other.value if isinstance(other, UInt32) else other
+        shift &= 0b11111
+        return UInt32(self.value << shift)
+
     def __rshift__(self, other: UInt32 | int) -> UInt32:
+        shift = other.value if isinstance(other, UInt32) else other
+        shift &= 0b11111
+        return UInt32(self.value >> shift)
+
+    def __irshift__(self, other: UInt32 | int) -> UInt32:
+        shift = other.value if isinstance(other, UInt32) else other
+        shift &= 0b11111
+        return UInt32(self.value >> shift)
+
+    def __rrshift__(self, other: UInt32 | int) -> UInt32:
         shift = other.value if isinstance(other, UInt32) else other
         shift &= 0b11111
         return UInt32(self.value >> shift)
