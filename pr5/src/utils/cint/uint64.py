@@ -142,7 +142,7 @@ class UInt64:
     # Pretty Printing
 
     def __str__(self) -> str:
-        return f"{self.value}:u64"
+        return f"{hex(self.value).zfill(UINT64_WIDTH)}:u64"
 
     def __repr__(self) -> str:
         return f"UInt64({self.value})"

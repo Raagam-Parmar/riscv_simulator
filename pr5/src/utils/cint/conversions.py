@@ -1,22 +1,64 @@
 """
-# Type conversions between UInt32 and UInt64
+# Type conversions between C-like Integers and Python Integers
 """
 
-from src.utils.cint.int32 import UInt32
-from src.utils.cint.int64 import UInt64
+from src.utils.cint.uint8 import UInt8
+from src.utils.cint.uint16 import UInt16
+from src.utils.cint.uint32 import UInt32
+from src.utils.cint.uint64 import UInt64
 
 
-def uint32_to_uint64(value: UInt32) -> UInt64:
+def uint8(x: int | UInt8 | UInt16 | UInt32 | UInt64) -> UInt8:
     """
-    Zero-extend UInt32 to UInt64
-    """
-
-    return UInt64(value.value)
-
-
-def uint64_to_uint32(value: UInt64) -> UInt32:
-    """
-    Truncate UInt64 to UInt32
+    Converts into `uint8` from `int`, `uint8`, `uint16`, `uint32` and `uint64`.
     """
 
-    return UInt32(value.value)
+    match x:
+        case int():
+            return UInt8(x)
+        case UInt8():
+            return x
+        case UInt16() | UInt32() | UInt64():
+            return UInt8(x.value)
+
+
+def uint16(x: int | UInt8 | UInt16 | UInt32 | UInt64) -> UInt16:
+    """
+    Converts into `uint16` from `int`, `uint8`, `uint16`, `uint32` and `uint64`.
+    """
+
+    match x:
+        case int():
+            return UInt16(x)
+        case UInt16():
+            return x
+        case UInt8() | UInt32() | UInt64():
+            return UInt16(x.value)
+
+
+def uint32(x: int | UInt8 | UInt16 | UInt32 | UInt64) -> UInt32:
+    """
+    Converts into `uint32` from `int`, `uint8`, `uint16`, `uint32` and `uint64`.
+    """
+
+    match x:
+        case int():
+            return UInt32(x)
+        case UInt32():
+            return x
+        case UInt8() | UInt16() | UInt64():
+            return UInt32(x.value)
+
+
+def uint64(x: int | UInt8 | UInt16 | UInt32 | UInt64) -> UInt64:
+    """
+    Converts into `uint64` from `int`, `uint8`, `uint16`, `uint32` and `uint64`.
+    """
+
+    match x:
+        case int():
+            return UInt64(x)
+        case UInt64():
+            return x
+        case UInt8() | UInt16() | UInt32():
+            return UInt64(x.value)
