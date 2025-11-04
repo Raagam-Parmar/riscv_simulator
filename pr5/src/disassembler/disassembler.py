@@ -66,7 +66,7 @@ def disassemble(inst: int) -> Optional[Instruction]:
 
     op = _opcode.extract(inst)
 
-    if _opcode not in opcode_tbl:
+    if op not in opcode_tbl:
         return None
 
     return opcode_tbl[op](inst)
