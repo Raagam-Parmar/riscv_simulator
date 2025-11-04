@@ -2,10 +2,12 @@
 # Type conversions between C-like Integers and Python Integers
 """
 
-from src.utils.cint.uint8 import UInt8
-from src.utils.cint.uint16 import UInt16
-from src.utils.cint.uint32 import UInt32
-from src.utils.cint.uint64 import UInt64
+from src.utils.cint.uintN import UIntN
+
+class UInt8(UIntN, width=8): pass
+class UInt16(UIntN, width=16): pass
+class UInt32(UIntN, width=32): pass
+class UInt64(UIntN, width=64): pass
 
 
 def uint8(x: int | UInt8 | UInt16 | UInt32 | UInt64) -> UInt8:

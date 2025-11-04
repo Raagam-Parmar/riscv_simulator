@@ -2,11 +2,28 @@
 # C-like Integers
 """
 
-from src.utils.cint.uint8 import UInt8
-from src.utils.cint.uint16 import UInt16
-from src.utils.cint.uint32 import UInt32
-from src.utils.cint.uint64 import UInt64
-from src.utils.cint.conversions import uint8, uint16, uint32, uint64
+from src.utils.cint.types import (
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+)
+
+Byte = UInt8
+byte = uint8
+
+HalfWord = UInt16
+halfword = uint16
+
+Word = UInt32
+word = uint32
+
+DoubleWord = UInt64
+doubleword = uint64
 
 
 __all__ = [
@@ -17,5 +34,13 @@ __all__ = [
     "UInt32",
     "uint32",
     "UInt64",
-    "uint64"
+    "uint64",
+    "Byte",
+    "byte",
+    "HalfWord",
+    "halfword",
+    "Word",
+    "word",
+    "DoubleWord",
+    "doubleword",
 ]
