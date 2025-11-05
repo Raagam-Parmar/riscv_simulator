@@ -7,6 +7,7 @@ from src.utils.stats import Statistics
 from src.processor.base import *
 from src.disassembler import disassemble_error
 from src.isa.properties import *
+from src.hardware.alu import *
 
 
 @dataclass(frozen=True)
@@ -51,14 +52,256 @@ class PipelineControl:
     mem_wb: LatchControl
 
 
-class PipelinedProcessor(Processor):
+class ForwardingPipelined(Processor):
     def __init__(self, start: UInt32, ram: RAM32, logger: PR5Logger, stats: Statistics):
         super().__init__(start, ram, logger)
         self.stats = stats
 
+    def execute_pipelined(self, latches: PipelineLatches) -> Optional[EX_MEM_Latch]:
+        id_ex = latches.id_ex
+        ex_mem = latches.ex_mem
+        mem_wb = latches.mem_wb
+
+        if id_ex is None:
+            self.logr.debug("[FWD] Bubble in ID/EX. Nothing to forward for.")
+            return None
+
+        op1 = id_ex.op1
+        op2 = id_ex.op2
+
+        self.logr.debug(
+            "[FWD] Checking for forwarding paths in priority EX/MEM > MEM/WB"
+        )
+
+        if ex_mem is not None:
+            """Forward rs1 from EX/MEM to ID/EX"""
+            if (
+                has_rd(ex_mem.inst)
+                and has_rs1(id_ex.inst)
+                and ex_mem.inst.rd == id_ex.inst.rs1
+                and id_ex.inst.rs1 != 0
+            ):
+                self.logr.debug(
+                    f"      Forwarding for rs1:x{id_ex.inst.rs1} from EX/MEM to ID/EX."
+                )
+                op1 = ex_mem.result
+
+        elif mem_wb is not None:
+            """Forward rs1 from MEM/WB to ID/EX"""
+            if (
+                has_rd(mem_wb.inst)
+                and has_rs1(id_ex.inst)
+                and mem_wb.inst.rd == id_ex.inst.rs1
+                and id_ex.inst.rs1 != 0
+            ):
+                self.logr.debug(
+                    f"      Forwarding for rs1:x{id_ex.inst.rs1} from MEM/WB to ID/EX."
+                )
+                op1 = mem_wb.result
+
+        else:
+            self.logr.debug("      Can not forward for rs1")
+            pass
+
+        if ex_mem is not None:
+            """Forward rs2 from EX/MEM to ID/EX"""
+            if (
+                has_rd(ex_mem.inst)
+                and has_rs2(id_ex.inst)
+                and ex_mem.inst.rd == id_ex.inst.rs2
+                and id_ex.inst.rs2 != 0
+            ):
+                self.logr.debug(
+                    f"      Forwarding for rs2:x{id_ex.inst.rs2} from EX/MEM to ID/EX."
+                )
+                op2 = ex_mem.result
+
+        elif mem_wb is not None:
+            """Forward rs2 frmo EX/MEM to ID/EX"""
+            if (
+                has_rd(mem_wb.inst)
+                and has_rs2(id_ex.inst)
+                and mem_wb.inst.rd == id_ex.inst.rs2
+                and id_ex.inst.rs2 != 0
+            ):
+                self.logr.debug(
+                    f"      Forwarding for rs2:x{id_ex.inst.rs2} from MEM/WB to ID/EX."
+                )
+                op2 = mem_wb.result
+
+        else:
+            self.logr.debug("      Can not forward for rs2")
+            pass
+
+        id_ex_forwarded = ID_EX_Latch(inst=id_ex.inst, op1=op1, op2=op2, pc=id_ex.pc)
+
+        return self.execute(id_ex_forwarded)
+
+    def update_pc_pipelined(self, latches: PipelineLatches) -> PC_IF_Latch:
+        pc_if = latches.pc_if
+        if_id = latches.if_id
+        ex_mem = latches.ex_mem
+
+        if if_id is None:
+            self.logr.debug("[U] Bubble in EX/MEM")
+            self.logr.debug(f"    Advancing: PC = PC + 4")
+            return PC_IF_Latch(pc=pc_if.pc + 4)
+
+        if_id_inst = disassemble_error(if_id.inst)
+        pc = if_id.pc
+
+        next_pc = pc + uint32(4)
+        pc_src = PCSource.PLUS_4
+
+        cmp1: UInt32
+        cmp2: UInt32
+
+        match if_id_inst:
+            case Branch():
+                op = if_id_inst.op
+                imm = if_id_inst.imm
+                pc = if_id.pc
+
+                rs1 = if_id_inst.rs1
+                rs2 = if_id_inst.rs2
+
+                cmp1 = self.regfile.read(rs1)
+                cmp2 = self.regfile.read(rs2)
+
+                if (
+                    ex_mem is not None
+                    and has_rs1(if_id_inst)
+                    and has_rd(ex_mem.inst)
+                    and if_id_inst.rs1 == ex_mem.inst.rd
+                    and if_id_inst.rs1 != 0
+                ):
+                    # it is possible to forward rs1 value form EX/MEM to IF/ID
+                    cmp1 = ex_mem.result
+
+                if (
+                    ex_mem is not None
+                    and has_rs2(if_id_inst)
+                    and has_rd(ex_mem.inst)
+                    and if_id_inst.rs2 == ex_mem.inst.rd
+                    and if_id_inst.rs2 != 0
+                ):
+                    # it is possible to forward rs2 value form EX/MEM to IF/ID
+                    cmp2 = ex_mem.result
+
+                branch_taken = target_pc(cmp1, cmp2, op)
+
+                if branch_taken != 0:
+                    next_pc = pc + uint32(imm)
+                    pc_src = PCSource.IMM
+
+            case Jalr():
+                op1 = self.regfile.read(if_id_inst.rs1)
+                op2 = uint32(if_id_inst.imm)
+                next_pc = target_pc(op1, op2, if_id_inst.op)
+                pc_src = PCSource.BRANCH_TARGET
+
+            case Jal():  # load branch 2 stalls?
+                op1 = if_id.pc
+                op2 = uint32(if_id_inst.imm)
+                next_pc = target_pc(op1, op2, if_id_inst.op)
+                pc_src = PCSource.BRANCH_TARGET
+
+            case (
+                Reg_reg()
+                | Reg_imm()
+                | Load()
+                | Store()
+                | Upper_imm()
+                | Misc_mem()
+                | Atomic()
+                | Env()
+                | Zicsr_reg_reg()
+                | Zicsr_reg_imm()
+            ):
+                pass
+
+        match pc_src:
+            case PCSource.PLUS_4:
+                self.logr.debug(f"[U] PC = PC + 4")
+            case PCSource.IMM:
+                self.logr.debug(f"[U] PC = PC + imm")
+            case PCSource.BRANCH_TARGET:
+                self.logr.debug(f"[U] PC = alu_result")
+
+        self.logr.debug(f"    {uint32(pc)} -> {uint32(next_pc)}")
+
+        return PC_IF_Latch(pc=next_pc)
+
+    def _load_use_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
+        """
+        Checks if there is a load-use dependency, i.e., is `inst2` a load instruction,
+        and `inst1` trying to read from the non-zero destination register of `inst2`?
+
+        :param inst1: Dependent instruction
+        :param inst2: Independent instruction
+
+        :return: `True` if dependent, else `False`
+        """
+
+        if not isinstance(inst2, Load):
+            return False
+
+        if inst2.rd == 0:
+            return False
+
+        return (has_rs1(inst1) and inst1.rs1 == inst2.rd) or (
+            has_rs2(inst1) and inst1.rs2 == inst2.rd
+        )
+
+    def _write_branch_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
+        """
+        Checks if there is a write-branch dependency, i.e, is `inst1` a branch
+        instruction, and `inst2` writes to a non-zero destination register, which
+        is also read by `inst1`?
+
+        :param inst1: Dependent Instruction
+        :param inst2: Independent Instruction
+
+        :return: `True` if dependent, else `False`
+        """
+
+        if not isinstance(inst1, Branch):
+            return False
+
+        if has_rd(inst2):
+            if inst2.rd == 0:
+                return False
+
+            return inst1.rs1 == inst2.rd or inst1.rs2 == inst2.rd
+
+        return False
+
+    def _load_branch_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
+        """
+        Checks if there is a load-branch dependency, i.e., is `inst1` a branch
+        instruction, and `inst2` a load instruction, such that `inst1` is reading
+        a non-zero destination register of `inst2`?
+
+        :param isnt1: Dependent Instruction
+        :param inst2: Independent Instruction
+
+        :return: `True` is dependent, else `False`
+        """
+
+        if not isinstance(inst1, Branch):
+            return False
+
+        if not isinstance(inst2, Load):
+            return False
+
+        if inst2.rd == 0:
+            return False
+
+        return inst1.rs1 == inst2.rd or inst1.rs2 == inst2.rd
+
     def _hazard_data(self, latches: PipelineLatches) -> Optional[PipelineControl]:
         """
-        Given the CPU state, checks if there is a RAW or load-use dependency.
+        Given the CPU state, checks if there is a data hazard.
 
         :param latches: The current state of the pipelined CPU
 
@@ -68,16 +311,15 @@ class PipelinedProcessor(Processor):
 
         if_id = latches.if_id
         id_ex = latches.id_ex
-        ex_mem = latches.ex_mem
 
-        if if_id is None:
+        if if_id is None or id_ex is None:
             self.logr.debug("    No RAW Hazard")
             return None
 
         inst = if_id.inst
-        dis = disassemble_error(inst)
+        if_id_inst = disassemble_error(inst)
 
-        pipeline_control = PipelineControl(
+        stall_by_id_ex = PipelineControl(
             pc_if=LatchControl.STALL,
             if_id=LatchControl.STALL,
             id_ex=LatchControl.FLUSH,
@@ -85,19 +327,12 @@ class PipelinedProcessor(Processor):
             mem_wb=LatchControl.CONTD,
         )
 
-        if id_ex is not None and has_rd(id_ex.inst):
-            if (has_rs1(dis) and (dis.rs1 == id_ex.inst.rd) and (dis.rs1 != 0)) or (
-                has_rs2(dis) and (dis.rs2 == id_ex.inst.rd) and (dis.rs2 != 0)
-            ):
-                self.logr.debug("    RAW hazard: IF/ID and ID/EX")
-                return pipeline_control
+        load_use_dep = self._load_use_dependency(if_id_inst, id_ex.inst)
+        write_branch_dep = self._write_branch_dependency(if_id_inst, id_ex.inst)
+        load_branch_dep = self._load_branch_dependency(if_id_inst, id_ex.inst)
 
-        if ex_mem is not None and has_rd(ex_mem.inst):
-            if (has_rs1(dis) and (dis.rs1 == ex_mem.inst.rd) and (dis.rs1 != 0)) or (
-                has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd) and (dis.rs1 != 0)
-            ):
-                self.logr.debug("    RAW hazard: IF/ID and EX/MEM")
-                return pipeline_control
+        if load_use_dep or write_branch_dep or load_branch_dep:
+            return stall_by_id_ex
 
         self.logr.debug("    No RAW hazard")
         return None
@@ -112,40 +347,18 @@ class PipelinedProcessor(Processor):
         is detected, `None` otherwise.
         """
         if_id = latches.if_id
-        id_ex = latches.id_ex
-        ex_mem = latches.ex_mem
 
         if if_id is not None:
-            dis = disassemble_error(if_id.inst)
-            if modifies_pc(dis):
+            if_id_inst = disassemble_error(if_id.inst)
+            if modifies_pc(if_id_inst):
                 self.logr.debug("    Control hazard: PC modifying instruction in IF/ID")
                 return PipelineControl(
-                    pc_if=LatchControl.STALL,
+                    pc_if=LatchControl.CONTD,
                     if_id=LatchControl.FLUSH,
                     id_ex=LatchControl.CONTD,
                     ex_mem=LatchControl.CONTD,
                     mem_wb=LatchControl.CONTD,
                 )
-
-        if id_ex is not None and modifies_pc(id_ex.inst):
-            self.logr.debug("    Control hazard: PC modifying instruction in ID/EX")
-            return PipelineControl(
-                pc_if=LatchControl.STALL,
-                if_id=LatchControl.FLUSH,
-                id_ex=LatchControl.FLUSH,
-                ex_mem=LatchControl.CONTD,
-                mem_wb=LatchControl.CONTD,
-            )
-
-        if ex_mem is not None and modifies_pc(ex_mem.inst):
-            self.logr.debug("    Control hazard: PC modifying instruction in EX/MEM")
-            return PipelineControl(
-                pc_if=LatchControl.CONTD,
-                if_id=LatchControl.FLUSH,
-                id_ex=LatchControl.FLUSH,
-                ex_mem=LatchControl.FLUSH,
-                mem_wb=LatchControl.CONTD,
-            )
 
         self.logr.debug("    No control hazard")
         return None
@@ -161,7 +374,7 @@ class PipelinedProcessor(Processor):
 
         self.logr.debug("[H] Detected hazards:")
 
-        hazard_raw = self._hazard_data(latches)
+        hazard_data = self._hazard_data(latches)
         hazard_control = self._hazard_control(latches)
 
         hazard_safe = PipelineControl(
@@ -172,10 +385,10 @@ class PipelinedProcessor(Processor):
             mem_wb=LatchControl.CONTD,
         )
 
-        if hazard_raw:
-            return hazard_raw
+        if hazard_data is not None:
+            return hazard_data
 
-        if hazard_control:
+        if hazard_control is not None:
             return hazard_control
 
         return hazard_safe
@@ -248,7 +461,6 @@ class PipelinedProcessor(Processor):
         :param controls Updation controls for the pipeline
         """
 
-        id_ex = latches.id_ex
         ex_mem = latches.ex_mem
 
         match controls.ex_mem:
@@ -261,11 +473,7 @@ class PipelinedProcessor(Processor):
                 return None
 
             case LatchControl.CONTD:
-                if id_ex is None:
-                    self.logr.debug(f"[E] Bubble in EX/MEM")
-                    return None
-
-                return self.execute(id_ex)
+                return self.execute_pipelined(latches)
 
     def mem_access_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
@@ -309,7 +517,6 @@ class PipelinedProcessor(Processor):
         """
 
         pc_if = latches.pc_if
-        ex_mem = latches.ex_mem
 
         match controls.pc_if:
             case LatchControl.STALL:
@@ -322,19 +529,7 @@ class PipelinedProcessor(Processor):
                 )
 
             case LatchControl.CONTD:
-                if ex_mem is None:
-                    self.logr.debug(f"[U] Bubble in EX/MEM")
-                    self.logr.debug(f"    Advancing: PC = PC + 4")
-                    return PC_IF_Latch(pc=pc_if.pc + 4)
-
-                if not modifies_pc(ex_mem.inst):
-                    self.logr.debug(
-                        f"[U] Discarding PC update of a non-jump instruction"
-                    )
-                    self.logr.debug(f"    Advancing: PC = PC + 4")
-                    return PC_IF_Latch(pc=pc_if.pc + 4)
-
-                return self.update_pc(ex_mem)
+                return self.update_pc_pipelined(latches)
 
     def writeback_pipelined(self, latches: PipelineLatches) -> None:
         """
@@ -372,20 +567,9 @@ class PipelinedProcessor(Processor):
 
     def run(self, num_insts: int):
         """
-        Run a 5-stage pipelined processor.
+        Run a 5-stage pipelined processor with forwarding.
         """
-        # TODO: Complete this function in such a way that the statistics file
-        # (stats.json) has the correct cycle count when the program is executed
-        # on a simple 5-stage pipeline without any forwarding or bypass
-        # mechanism implemented. Assume that the targetPC is generated after
-        # the EX stage (there will be three wrong-path instructions in case of
-        # a control hazard). You should change the interfaces of fetch(),
-        # decode(), operand_fetch(), execute(), update_pc(), mem_access(), and
-        # reg_write() functions of the Processor base class as needed, and
-        # update the code of the SingleCycleProcessor appropriately. Refrain
-        # from changing the output formats of the [OUT] messages printed from
-        # the reg_write() function. You can ignore counting the number of
-        # memory accesses for now.
+
         i_cnt = 0
         latches = PipelineLatches(
             pc_if=self.initialise_pc(),

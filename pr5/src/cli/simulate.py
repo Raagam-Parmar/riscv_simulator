@@ -7,7 +7,7 @@ import src.hardware.ram32 as ram
 import src.io.loader as loader
 import src.utils.logger as logger
 from src.utils import stats
-from src.processor import SingleCycleProcessor, PipelinedProcessor
+from src.processor import SingleCycleProcessor, PipelinedProcessor, ForwardingPipelined
 from src.utils.constants import BASE_ADDR
 
 
@@ -34,7 +34,7 @@ def parse_args():
         "--proc",
         type=str,
         default="SingleCycleProcessor",
-        help="Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor)",
+        help="Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor / FPipelinedProcessor)",
     )
 
     return parser.parse_args()
@@ -53,7 +53,7 @@ def run_simulation():
     - `--num_insts` : Number of instructions to simulate
 
     Default: `1000`
-    - `--proc` : Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor)
+    - `--proc` : Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor / FPipelinedProcessor)
 
     Default: `SingleCycleProcessor`
     """
@@ -77,6 +77,8 @@ def run_simulation():
         processor = SingleCycleProcessor(args.start, mem, loggr, stat)
     elif args.proc == "PipelinedProcessor":
         processor = PipelinedProcessor(args.start, mem, loggr, stat)
+    elif args.proc == "FPipelinedProcessor":
+        processor = ForwardingPipelined(args.start, mem, loggr, stat)
     else:
         raise NameError(
             f"Unknown processor {args.proc}, allowed processors: SingleCycleProcessor / PipelinedProcessor"
