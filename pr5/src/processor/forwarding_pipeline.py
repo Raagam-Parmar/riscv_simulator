@@ -63,14 +63,14 @@ class ForwardingPipelined(Processor):
         mem_wb = latches.mem_wb
 
         if id_ex is None:
-            self.logr.debug("[FWD] Bubble in ID/EX. Nothing to forward for.")
+            self.logr.debug("[FWD1] Bubble in ID/EX. Nothing to forward for.")
             return None
 
         op1 = id_ex.op1
         op2 = id_ex.op2
 
         self.logr.debug(
-            "[FWD] Checking for forwarding paths in priority EX/MEM > MEM/WB"
+            "[FWD1] Checking for forwarding paths in priority EX/MEM > MEM/WB to EX"
         )
 
         if ex_mem is not None:
@@ -81,10 +81,11 @@ class ForwardingPipelined(Processor):
                 and ex_mem.inst.rd == id_ex.inst.rs1
                 and id_ex.inst.rs1 != 0
             ):
-                self.logr.debug(
-                    f"      Forwarding for rs1:x{id_ex.inst.rs1} from EX/MEM to ID/EX."
-                )
                 op1 = ex_mem.result
+                self.logr.debug(
+                    f"       Forwarding for rs1 = x{id_ex.inst.rs1} from EX/MEM to EX."
+                )
+                self.logr.debug(f"       New op1: {op1}")
 
         elif mem_wb is not None:
             """Forward rs1 from MEM/WB to ID/EX"""
@@ -94,10 +95,15 @@ class ForwardingPipelined(Processor):
                 and mem_wb.inst.rd == id_ex.inst.rs1
                 and id_ex.inst.rs1 != 0
             ):
+                if isinstance(mem_wb.inst, Load):
+                    op1 = mem_wb.loaded_data or uint32(0) # TODO Fix this.
+                else:
+                    op1 = mem_wb.result
+
                 self.logr.debug(
-                    f"      Forwarding for rs1:x{id_ex.inst.rs1} from MEM/WB to ID/EX."
+                    f"      Forwarding for rs1 = x{id_ex.inst.rs1} from MEM/WB to EX."
                 )
-                op1 = mem_wb.result
+                self.logr.debug(f"       New op1: {op1}")
 
         else:
             self.logr.debug("      Can not forward for rs1")
@@ -111,10 +117,11 @@ class ForwardingPipelined(Processor):
                 and ex_mem.inst.rd == id_ex.inst.rs2
                 and id_ex.inst.rs2 != 0
             ):
-                self.logr.debug(
-                    f"      Forwarding for rs2:x{id_ex.inst.rs2} from EX/MEM to ID/EX."
-                )
                 op2 = ex_mem.result
+                self.logr.debug(
+                    f"      Forwarding for rs2 = x{id_ex.inst.rs2} from EX/MEM to EX."
+                )
+                self.logr.debug(f"       New op2: {op2}")
 
         elif mem_wb is not None:
             """Forward rs2 frmo EX/MEM to ID/EX"""
@@ -124,10 +131,15 @@ class ForwardingPipelined(Processor):
                 and mem_wb.inst.rd == id_ex.inst.rs2
                 and id_ex.inst.rs2 != 0
             ):
+                if isinstance(mem_wb.inst, Load):
+                    op2 = mem_wb.loaded_data or uint32(0) # TODO Fix this.
+                else:
+                    op2 = mem_wb.result
+
                 self.logr.debug(
-                    f"      Forwarding for rs2:x{id_ex.inst.rs2} from MEM/WB to ID/EX."
+                    f"      Forwarding for rs2 = x{id_ex.inst.rs2} from MEM/WB to EX."
                 )
-                op2 = mem_wb.result
+                self.logr.debug(f"       New op2: {op2}")
 
         else:
             self.logr.debug("      Can not forward for rs2")
@@ -148,13 +160,15 @@ class ForwardingPipelined(Processor):
             return PC_IF_Latch(pc=pc_if.pc + 4)
 
         if_id_inst = disassemble_error(if_id.inst)
-        pc = if_id.pc
+        pc = if_id.pc if modifies_pc(if_id_inst) else pc_if.pc
 
         next_pc = pc + uint32(4)
         pc_src = PCSource.PLUS_4
 
         cmp1: UInt32
         cmp2: UInt32
+
+        self.logr.debug(f"[FWD2] Checking for forwarding paths from EX/MEM to ID")
 
         match if_id_inst:
             case Branch():
@@ -175,7 +189,7 @@ class ForwardingPipelined(Processor):
                     and if_id_inst.rs1 == ex_mem.inst.rd
                     and if_id_inst.rs1 != 0
                 ):
-                    # it is possible to forward rs1 value form EX/MEM to IF/ID
+                    self.logr.debug(f"       Forwarding for rs1:x{if_id_inst.rs1}")
                     cmp1 = ex_mem.result
 
                 if (
@@ -185,26 +199,30 @@ class ForwardingPipelined(Processor):
                     and if_id_inst.rs2 == ex_mem.inst.rd
                     and if_id_inst.rs2 != 0
                 ):
-                    # it is possible to forward rs2 value form EX/MEM to IF/ID
+                    self.logr.debug(f"       Forwarding for rs2:x{if_id_inst.rs2}")
                     cmp2 = ex_mem.result
 
                 branch_taken = target_pc(cmp1, cmp2, op)
+                self.logr.debug(f"       Branch taken: {branch_taken}")
 
                 if branch_taken != 0:
                     next_pc = pc + uint32(imm)
                     pc_src = PCSource.IMM
+                    self.logr.debug(f"       Rewritten next_pc by Branch")
 
             case Jalr():
                 op1 = self.regfile.read(if_id_inst.rs1)
                 op2 = uint32(if_id_inst.imm)
                 next_pc = target_pc(op1, op2, if_id_inst.op)
                 pc_src = PCSource.BRANCH_TARGET
+                self.logr.debug(f"       Rewritten next_pc by Jalr")
 
             case Jal():  # load branch 2 stalls?
                 op1 = if_id.pc
                 op2 = uint32(if_id_inst.imm)
                 next_pc = target_pc(op1, op2, if_id_inst.op)
                 pc_src = PCSource.BRANCH_TARGET
+                self.logr.debug(f"       Rewritten next_pc by Jal")
 
             case (
                 Reg_reg()
@@ -311,9 +329,10 @@ class ForwardingPipelined(Processor):
 
         if_id = latches.if_id
         id_ex = latches.id_ex
+        ex_mem = latches.ex_mem
 
-        if if_id is None or id_ex is None:
-            self.logr.debug("    No RAW Hazard")
+        if if_id is None:
+            self.logr.debug("    No data Hazard")
             return None
 
         inst = if_id.inst
@@ -327,14 +346,21 @@ class ForwardingPipelined(Processor):
             mem_wb=LatchControl.CONTD,
         )
 
-        load_use_dep = self._load_use_dependency(if_id_inst, id_ex.inst)
-        write_branch_dep = self._write_branch_dependency(if_id_inst, id_ex.inst)
-        load_branch_dep = self._load_branch_dependency(if_id_inst, id_ex.inst)
+        if id_ex is not None:
+            if self._load_use_dependency(if_id_inst, id_ex.inst):
+                self.logr.debug("    Data Hazard: Load-use, IF/ID depends on ID/EX")
+                return stall_by_id_ex
 
-        if load_use_dep or write_branch_dep or load_branch_dep:
-            return stall_by_id_ex
+            if self._write_branch_dependency(if_id_inst, id_ex.inst):
+                self.logr.debug("    Data Hazard: Write-branch, IF/ID depends on ID/EX")
+                return stall_by_id_ex
 
-        self.logr.debug("    No RAW hazard")
+        if ex_mem is not None:
+            if self._load_branch_dependency(if_id_inst, ex_mem.inst):
+                self.logr.debug("    Data Hazard: Load-branch, IF/ID depends on EX/MEM")
+                return stall_by_id_ex
+
+        self.logr.debug("    No data hazard")
         return None
 
     def _hazard_control(self, latches: PipelineLatches) -> Optional[PipelineControl]:
@@ -553,11 +579,11 @@ class ForwardingPipelined(Processor):
         curr_ex_mem = latches.ex_mem
         curr_mem_wb = latches.mem_wb
 
-        pretty_pc_if = curr_pc_if.pc if curr_pc_if else "( )"
-        pretty_if_id = curr_if_id.pc if curr_if_id else "( )"
-        pretty_id_ex = curr_id_ex.pc if curr_id_ex else "( )"
-        pretty_ex_mem = curr_ex_mem.pc if curr_ex_mem else "( )"
-        pretty_mem_wb = curr_mem_wb.pc if curr_mem_wb else "( )"
+        pretty_pc_if = uint32(curr_pc_if.pc) if curr_pc_if else "( )"
+        pretty_if_id = uint32(curr_if_id.pc) if curr_if_id else "( )"
+        pretty_id_ex = uint32(curr_id_ex.pc) if curr_id_ex else "( )"
+        pretty_ex_mem = uint32(curr_ex_mem.pc) if curr_ex_mem else "( )"
+        pretty_mem_wb = uint32(curr_mem_wb.pc) if curr_mem_wb else "( )"
 
         self.logr.debug(f"PC/IF  {pretty_pc_if}")
         self.logr.debug(f"IF/ID  {pretty_if_id}")

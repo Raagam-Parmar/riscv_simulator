@@ -243,7 +243,11 @@ class Processor(ABC):
         if result is None:
             raise UnimplementedExecution(inst)
 
-        self.logr.debug(f"[E] ALU Result of {op} is: {result}")
+        self.logr.debug(f"[E] ALU operands received:")
+        self.logr.debug(f"    - op1 = {op1}")
+        self.logr.debug(f"    - op2 = {op2}")
+        self.logr.debug(f"    Operation: {op}")
+        self.logr.debug(f"    Result: {result}")
 
         return EX_MEM_Latch(
             inst=inst,
