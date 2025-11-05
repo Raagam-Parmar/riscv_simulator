@@ -2,11 +2,12 @@ from typing import Dict, Callable, Optional, Union
 
 from src.isa.instructions import *
 from src.utils.field import Field
+from src.utils.cint import UInt32
 
 
 class InvalidInstruction(Exception):
-    def __init__(self, inst: int):
-        self.message = f"Invalid Instruction: {hex(inst)} , {bin(inst)}"
+    def __init__(self, inst: UInt32):
+        self.message = f"Invalid Instruction: {inst}"
         super().__init__(self.message)
 
 
@@ -54,7 +55,7 @@ opcode_tbl: Dict[int, Callable[[int], Optional[Instruction]]] = {
 }
 
 
-def disassemble(inst: int) -> Optional[Instruction]:
+def disassemble(inst: UInt32) -> Optional[Instruction]:
     """
     Disassemble a RISCV instruction
 
@@ -64,15 +65,15 @@ def disassemble(inst: int) -> Optional[Instruction]:
     disassembled instruction
     """
 
-    op = _opcode.extract(inst)
+    op = _opcode.extract(int(inst))
 
     if op not in opcode_tbl:
         return None
 
-    return opcode_tbl[op](inst)
+    return opcode_tbl[op](int(inst))
 
 
-def disassemble_error(inst: int) -> Instruction:
+def disassemble_error(inst: UInt32) -> Instruction:
     """
     Disassemble a RISCV instruction or raise an error
 
@@ -83,12 +84,12 @@ def disassemble_error(inst: int) -> Instruction:
     :raises InvalidInstruction: if the instruction is invalid or unimplemented.
     """
 
-    op = _opcode.extract(inst)
+    op = _opcode.extract(int(inst))
 
     if op not in opcode_tbl:
         raise InvalidInstruction(inst)
 
-    maybe_inst = opcode_tbl[op](inst)
+    maybe_inst = opcode_tbl[op](int(inst))
 
     if not maybe_inst:
         raise InvalidInstruction(inst)
