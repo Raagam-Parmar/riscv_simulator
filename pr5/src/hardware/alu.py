@@ -2,136 +2,323 @@
 # Arithmetic and Logic Unit
 """
 
-from typing import Dict, Callable, Tuple
+from typing import Optional
 
-from src.isa.opcodes import *
-from src.isa.instructions import *
-from src.hardware.fu import *
-
-OperandFunc = Callable[[int, int, int, int], Tuple[int, int]]
-
-operands_tbl: Dict[OpCode, OperandFunc] = {
-    # Reg instruction
-    Reg_reg_ops.ADD: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.SUB: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, -1 * v_rs2),
-    Reg_reg_ops.XOR: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.OR: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.AND: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.SLL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.SRL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.SRA: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.SLT: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.SLTU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.MUL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.MULH: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.MULHSU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.MULHU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.DIV: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.DIVU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.REM: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Reg_reg_ops.REMU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    # Imm instruction
-    Reg_imm_ops.ADDI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.XORI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.ORI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.ANDI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.SLLI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.SRLI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.SRAI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.SLTI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Reg_imm_ops.SLTIU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    # JALR Instruction
-    Jalr_ops.JALR: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    # Load instruction
-    Load_ops.LB: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Load_ops.LH: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Load_ops.LW: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Load_ops.LBU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Load_ops.LHU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    # Store instruction
-    Store_ops.SB: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Store_ops.SH: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    Store_ops.SW: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_imm),
-    # Branch instruction
-    Branch_ops.BEQ: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Branch_ops.BNE: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Branch_ops.BLT: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Branch_ops.BGE: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Branch_ops.BLTU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    Branch_ops.BGEU: lambda v_rs1, v_rs2, v_imm, v_pc: (v_rs1, v_rs2),
-    # Upper-Immediate instruction
-    Upper_imm_ops.LUI: lambda v_rs1, v_rs2, v_imm, v_pc: (v_imm, 12),
-    Upper_imm_ops.AUIPC: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),
-    # Jump instruction
-    Jal_ops.JAL: lambda v_rs1, v_rs2, v_imm, v_pc: (v_pc, v_imm),
-    # TODO Misc Mem instruction
-    # TODO Atomic instruction
-    # Environment instruction
-    Env_ops.ECALL: lambda v_rs1, v_rs2, v_imm, v_pc: (0, 0),  # NOTE: Unimplemented
-    Env_ops.EBREAK: lambda v_rs1, v_rs2, v_imm, v_pc: (0, 0),  # NOTE: Unimplemented
-    # TODO Zicsr instruction
-    # TODO Zicsr Immediate instruction
-}
+from src.utils.cint import *
+from src.utils.constants import XWIDTH
+from src.isa import *
 
 
-function_tbl: Dict[OpCode, ExecFunc] = {
-    # Reg instruction
-    Reg_reg_ops.ADD: e_add,
-    Reg_reg_ops.SUB: e_add,
-    Reg_reg_ops.XOR: e_xor,
-    Reg_reg_ops.OR: e_or,
-    Reg_reg_ops.AND: e_and,
-    Reg_reg_ops.SLL: e_sll,
-    Reg_reg_ops.SRL: e_srl,
-    Reg_reg_ops.SRA: e_sra,
-    Reg_reg_ops.SLT: e_slt,
-    Reg_reg_ops.SLTU: e_slt,
-    Reg_reg_ops.MUL: e_mul,
-    Reg_reg_ops.MULH: e_mulh,
-    Reg_reg_ops.MULHSU: e_mulh,
-    Reg_reg_ops.MULHU: e_mulh,
-    Reg_reg_ops.DIV: e_div,
-    Reg_reg_ops.DIVU: e_div,
-    Reg_reg_ops.REM: e_rem,
-    Reg_reg_ops.REMU: e_rem,
-    # Imm instruction
-    Reg_imm_ops.ADDI: e_add,
-    Reg_imm_ops.XORI: e_xor,
-    Reg_imm_ops.ORI: e_or,
-    Reg_imm_ops.ANDI: e_and,
-    Reg_imm_ops.SLLI: e_sll,
-    Reg_imm_ops.SRLI: e_srl,
-    Reg_imm_ops.SRAI: e_sra,
-    Reg_imm_ops.SLTI: e_slt,
-    Reg_imm_ops.SLTIU: e_slt,
-    Jalr_ops.JALR: e_add,  # NOTE: Modified
-    # Load instruction
-    Load_ops.LB: e_agu,
-    Load_ops.LH: e_agu,
-    Load_ops.LW: e_agu,
-    Load_ops.LBU: e_agu,
-    Load_ops.LHU: e_agu,
-    # Store instruction
-    Store_ops.SB: e_agu,
-    Store_ops.SH: e_agu,
-    Store_ops.SW: e_agu,
-    # Branch instruction
-    Branch_ops.BEQ: e_beq,
-    Branch_ops.BNE: e_bne,
-    Branch_ops.BLT: e_blt,
-    Branch_ops.BGE: e_bge,
-    Branch_ops.BLTU: e_blt,
-    Branch_ops.BGEU: e_bge,
-    # Upper-Immediate instruction
-    Upper_imm_ops.LUI: e_sll,
-    Upper_imm_ops.AUIPC: e_auipc,
-    # Jump instruction
-    Jal_ops.JAL: e_add,  # NOTE: Modified
-    # TODO Misc Mem instruction
-    # TODO Atomic instruction
-    # Environment instruction
-    Env_ops.ECALL: e_nop,
-    Env_ops.EBREAK: e_nop,
-    # TODO Zicsr instruction
-    # TODO Zicsr Immediate instruction
-}
+def e_add(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Add)
+    `op1 + op2`
+    """
+    return op1 + op2
+
+
+def e_sub(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Sub)
+    `op1 - op2`
+    """
+    return op1 + op2
+
+
+def e_xor(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Xor)
+    `op1 ^ op2`
+    """
+    return op1 ^ op2
+
+
+def e_or(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Or)
+    `op1 | op2`
+    """
+    return op1 | op2
+
+
+def e_and(op1: UInt32, op2: UInt32) -> UInt32:
+    """(And)
+    `op1 & op2`
+    """
+    return op1 & op2
+
+
+def e_sll(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Sll)
+    `op1 << op2`
+    """
+    return op1 << op2
+
+
+def e_srl(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Srl)
+    `op1 >>> op2`
+    """
+    return op1 >> op2
+
+
+def e_sra(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Sra)
+    `op1 >> op2`
+    """
+    return op1.sra(op2)
+
+
+def e_slt(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Slt)
+    `sext(op1) < sext(op2) ? 1 : 0`
+    """
+    return uint32(1 if op1.signed() < op2.signed() else 0)
+
+
+def e_sltu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Slt)
+    `zext(op1) < zext(op2) ? 1 : 0`
+    """
+    return uint32(1 if op1 < op2 else 0)
+
+
+def e_mul(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Mul)
+    `(op1 * op2) [31..0]`
+
+    Sign agnostic in both `op1` and `op2`.
+    """
+    return op1 * op2
+
+
+def e_mulh(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Mulh)
+    `(sext(op1) * sext(op2)) [63..32]`
+    """
+    return uint32((op1.signed() * op2.signed()) >> 32)
+
+
+def e_mulhu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Mulhu)
+    `(zext(op1) * zext(op2)) [63..32]`
+    """
+    return uint32((op1.unsigned() * op2.unsigned()) >> 32)
+
+
+def e_mulhsu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Mulhsu)
+    `(sext(op1) * zext(op2)) [63..32]`
+    """
+    return uint32((op1.signed() * op2.unsigned()) >> 32)
+
+
+def e_div(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Div)
+    If `op2` is zero (division by zero), then INT32_MAX
+
+    Else if `op` is -(2**31) and `op2` is -1 (signed overflow), then `op1`
+
+    Else `sext(op1) / sext(op2)`
+
+    See: https://www.five-embeddev.com/riscv-user-isa-manual/riscv-user-2.2/m.html
+    """
+    if op2.unsigned() == 0:
+        return UInt32(0xFFFFFFFF)
+
+    if op1.signed() == -(2 ** (XWIDTH - 1)) and op2.signed() == -1:
+        return op1
+
+    return UInt32(op1.signed() // op2.signed())
+
+
+def e_divu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Divu)
+    If `op2` is zero (division by zero), then INT32_MAX
+
+    Else `sext(op1) / sext(op2)`
+
+    See: https://www.five-embeddev.com/riscv-user-isa-manual/riscv-user-2.2/m.html
+    """
+    if op2.unsigned() == 0:
+        return UInt32(0xFFFFFFFF)
+
+    return op1 // op2
+
+
+def e_rem(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Rem)
+    If `op2` is zero (division by zero), then `op1`
+
+    Else if `op` is -(2**31) and `op2` is -1 (signed overflow), then `0`
+
+    Else `sext(op1) % sext(op2)`
+
+    See: https://www.five-embeddev.com/riscv-user-isa-manual/riscv-user-2.2/m.html
+    """
+    if op2.unsigned() == 0:
+        return op1
+
+    if op1.signed() == -(2 ** (XWIDTH - 1)) and op2.signed() == -1:
+        return UInt32(0)
+
+    return UInt32(op1.signed() % op2.signed())
+
+
+def e_remu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Remu)
+    If `op2` is zero (division by zero), then `op1`
+
+    Else `sext(op1) % sext(op2)`
+
+    See: https://www.five-embeddev.com/riscv-user-isa-manual/riscv-user-2.2/m.html
+    """
+    if op2.unsigned() == 0:
+        return op1
+
+    return op1 % op2
+
+
+e_agu = e_add
+"""(Address generation unit)
+`op1 + op2`, where `op1` is an address and `op2` is the index
+"""
+
+
+def e_beq(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Beq)
+    `op1 == op2 ? 1 : 0`
+    """
+    return UInt32(op1 == op2)
+
+
+def e_bne(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Bne)
+    `op1 != op2 ? 1 : 0`
+    """
+    return UInt32(op1 != op2)
+
+
+def e_blt(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Blt)
+    `sext(op1) < sext(op2) ? 1 : 0`
+    """
+    return UInt32(op1.signed() < op2.signed())
+
+
+def e_bltu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Blt)
+    `zext(op1) < zext(op2) ? 1 : 0`
+    """
+    return UInt32(op1 < op2)
+
+
+def e_bge(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Bge)
+    `sext(op1) >= sext(op2) ? 1 : 0`
+    """
+    return UInt32(op1.signed() >= op2.signed())
+
+
+def e_bgeu(op1: UInt32, op2: UInt32) -> UInt32:
+    """(Bge)
+    `zext(op1) >= zext(op2) ? 1 : 0`
+    """
+    return UInt32(op1 >= op2)
+
+
+def alu(op1: UInt32, op2: UInt32, op: OpCode) -> Optional[UInt32]:
+    """(ALU)
+    `op1 <op> op2`
+    """
+
+    match op:
+        case Reg_reg_ops.ADD:
+            return e_add(op1, op2)
+        case Reg_reg_ops.SUB:
+            return e_sub(op1, op2)
+        case Reg_reg_ops.XOR:
+            return e_xor(op1, op2)
+        case Reg_reg_ops.OR:
+            return e_or(op1, op2)
+        case Reg_reg_ops.AND:
+            return e_and(op1, op2)
+        case Reg_reg_ops.SLL:
+            return e_sll(op1, op2)
+        case Reg_reg_ops.SRL:
+            return e_srl(op1, op2)
+        case Reg_reg_ops.SRA:
+            return e_sra(op1, op2)
+        case Reg_reg_ops.SLT:
+            return e_slt(op1, op2)
+        case Reg_reg_ops.SLTU:
+            return e_sltu(op1, op2)
+
+        case Reg_reg_ops.MUL:
+            return e_mul(op1, op2)
+        case Reg_reg_ops.MULH:
+            return e_mulh(op1, op2)
+        case Reg_reg_ops.MULHSU:
+            return e_mulhsu(op1, op2)
+        case Reg_reg_ops.MULHU:
+            return e_mulhu(op1, op2)
+        case Reg_reg_ops.DIV:
+            return e_div(op1, op2)
+        case Reg_reg_ops.DIVU:
+            return e_divu(op1, op2)
+        case Reg_reg_ops.REM:
+            return e_rem(op1, op2)
+        case Reg_reg_ops.REMU:
+            return e_remu(op1, op2)
+
+        case Reg_imm_ops.ADDI:
+            return e_add(op1, op2)
+        case Reg_imm_ops.XORI:
+            return e_xor(op1, op2)
+        case Reg_imm_ops.ORI:
+            return e_or(op1, op2)
+        case Reg_imm_ops.ANDI:
+            return e_and(op1, op2)
+        case Reg_imm_ops.SLLI:
+            return e_sll(op1, op2)
+        case Reg_imm_ops.SRLI:
+            return e_srl(op1, op2)
+        case Reg_imm_ops.SRAI:
+            return e_sra(op1, op2)
+        case Reg_imm_ops.SLTI:
+            return e_slt(op1, op2)
+        case Reg_imm_ops.SLTIU:
+            return e_sltu(op1, op2)
+
+        case Jalr_ops():
+            return e_add(op1, op2)
+
+        case Load_ops():
+            return e_add(op1, op2)
+
+        case Store_ops():
+            return e_add(op1, op2)
+
+        case Branch_ops.BEQ:
+            return e_beq(op1, op2)
+        case Branch_ops.BNE:
+            return e_bne(op1, op2)
+        case Branch_ops.BLT:
+            return e_blt(op1, op2)
+        case Branch_ops.BGE:
+            return e_bge(op1, op2)
+        case Branch_ops.BLTU:
+            return e_bltu(op1, op2)
+        case Branch_ops.BGEU:
+            return e_bgeu(op1, op2)
+
+        case Upper_imm_ops():
+            return e_add(op1, op2)
+
+        case Jal_ops():
+            return e_add(op1, op2)
+
+        case (
+            Misc_mem_ops()
+            | Atomic_ops()
+            | Env_ops()
+            | Zicsr_reg_imm_ops()
+            | Zicsr_reg_reg_ops()
+        ):
+            return None
