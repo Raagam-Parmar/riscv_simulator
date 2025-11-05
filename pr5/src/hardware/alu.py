@@ -322,3 +322,25 @@ def alu(op1: UInt32, op2: UInt32, op: OpCode) -> Optional[UInt32]:
             | Zicsr_reg_reg_ops()
         ):
             return None
+
+
+def target_pc(op1: UInt32, op2: UInt32, op: Branch_ops | Jalr_ops | Jal_ops):
+    match op:
+        case Branch_ops.BEQ:
+            return e_beq(op1, op2)
+        case Branch_ops.BNE:
+            return e_bne(op1, op2)
+        case Branch_ops.BLT:
+            return e_blt(op1, op2)
+        case Branch_ops.BGE:
+            return e_bge(op1, op2)
+        case Branch_ops.BLTU:
+            return e_bltu(op1, op2)
+        case Branch_ops.BGEU:
+            return e_bgeu(op1, op2)
+
+        case Jalr_ops():
+            return e_add(op1, op2)
+
+        case Jal_ops():
+            return e_add(op1, op2)
