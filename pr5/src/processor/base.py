@@ -22,7 +22,7 @@ from src.utils.cint import *
 class PCSource(Enum):
     PLUS_4 = auto()
     IMM = auto()
-    ALU_OUT = auto()
+    BRANCH_TARGET = auto()
 
 
 @dataclass(frozen=True)
@@ -59,13 +59,18 @@ class ID_EX_Latch:
     Holds:
     - Decoded instruction
     - Fetched operands
+        - `op1` (`rs1` or `pc`)
+        - `op2` (`rs2` or `imm`)
     - Program counter
     """
 
     inst: Instruction
 
     op1: UInt32
+    """`rs1` or `pc`"""
+
     op2: UInt32
+    """`rs2` or `imm`"""
 
     pc: UInt32
 
@@ -165,6 +170,9 @@ class Processor(ABC):
     def operand_fetch(self, inst: Instruction, if_id: IF_ID_Latch) -> ID_EX_Latch:
         """
         Fetch the required operands for a decoded instruction
+        The operands are in the order:
+        - `op1`: `rs1` or `pc`
+        - `op1`: `rs2` or `imm`
 
         :param inst: Decoded instruction
         :param if_id: Latch containing fetched instruction and program
@@ -192,15 +200,15 @@ class Processor(ABC):
                     # The left shifting is done by the immediate generation unit
                     # not the ALU
                     case Upper_imm_ops.LUI:
-                        op1 = uint32(inst.imm << 12)  # TODO Magic number 12
-                        op2 = uint32(0)
+                        op1 = uint32(0)
+                        op2 = uint32(inst.imm << 12)  # TODO Magic number 12
                     case Upper_imm_ops.AUIPC:
-                        op1 = uint32(inst.imm << 12)  # TODO Magic number 12
-                        op2 = if_id.pc
+                        op1 = if_id.pc
+                        op2 = uint32(inst.imm << 12)  # TODO Magic number 12
 
             case Jal():
-                op1 = uint32(inst.imm)
-                op2 = if_id.pc
+                op1 = if_id.pc
+                op2 = uint32(inst.imm)
 
             case Misc_mem() | Atomic() | Env() | Zicsr_reg_imm() | Zicsr_reg_reg():
                 raise UnimplementedExecution(inst)
@@ -269,7 +277,7 @@ class Processor(ABC):
 
             case Jal() | Jalr():
                 next_pc = result
-                pc_src = PCSource.ALU_OUT
+                pc_src = PCSource.BRANCH_TARGET
 
             case (
                 Reg_reg()
@@ -290,7 +298,7 @@ class Processor(ABC):
                 self.logr.debug(f"[U] PC = PC + 4")
             case PCSource.IMM:
                 self.logr.debug(f"[U] PC = PC + imm")
-            case PCSource.ALU_OUT:
+            case PCSource.BRANCH_TARGET:
                 self.logr.debug(f"[U] PC = alu_result")
 
         self.logr.debug(f"    {uint32(pc)} -> {uint32(next_pc)}")
