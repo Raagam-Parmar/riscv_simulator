@@ -357,7 +357,7 @@ class UIntN:
     # --------------------------------- Display ---------------------------------- #
 
     def __str__(self) -> str:
-        return f"0x{self.value:0{self.HEX_DIGITS}X}:u{self.UINT_WIDTH}"
+        return f"0x{self.value:0{self.HEX_DIGITS}X}"
 
     def __repr__(self) -> str:
         return f"UInt{self.UINT_WIDTH}({self.value})"

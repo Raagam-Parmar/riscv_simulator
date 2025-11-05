@@ -9,12 +9,12 @@ from src.utils.pretty import pp_word
 from src.utils.cint import *
 
 
-RAM_WIDTH: int = 32
+RAM_WIDTH: int = 8
 """
-Width and log2-depth of the RAM, 32-bits
+Width of memory cell, 8-bits
 """
 
-RAM_DEPTH: int = 2**RAM_WIDTH
+RAM_DEPTH: int = 2**32
 """
 Depth of the RAM, 2^32.
 """
@@ -40,7 +40,7 @@ class AddressMisaligned(Exception):
     Requested to read from or write to an address which is not aligned to given boundary
     """
 
-    def __init__(self, address: int, align: int):
+    def __init__(self, address: UInt32, align: int):
         super().__init__(f"Address {address} is not {align}-byte aligned")
 
 
@@ -84,8 +84,8 @@ class RAM32:
         :raises AddressMisaligned: If address is not 2-byte aligned
         """
 
-        if address & 0b1:
-            raise AddressMisaligned(address.value, 2)
+        if address & 0b1 != 0:
+            raise AddressMisaligned(address, 2)
 
     def _check_word_addr(self, address: t_addr) -> None:
         """
@@ -94,8 +94,8 @@ class RAM32:
         :raises AddressMisaligned: If address is not 4-byte aligned
         """
 
-        if address & 0b11:
-            raise AddressMisaligned(address.value, 4)
+        if address & 0b11 != 0:
+            raise AddressMisaligned(address, 4)
 
     # ---------------------------------------------------------------------------- #
     # Functions for reading and writing bytes
@@ -169,7 +169,7 @@ class RAM32:
         """
         Read a word at `address`.
 
-        :param address: LSB address of the halfword
+        :param address: LSB address of the word
         :raises AddressMisaligned: If address is not 4-byte aligned
         :raises AddressOutOfRange: If address is out of word range
         """

@@ -1,10 +1,12 @@
-from src.hardware.ram import RAM
+from src.hardware.ram32 import RAM32
 from src.processor.base import Processor
 from src.utils.logger import PR5Logger
 from src.utils.stats import Statistics
+from src.utils.cint import *
+
 
 class SingleCycleProcessor(Processor):
-    def __init__(self, start: int, ram: RAM, logger: PR5Logger, stat: Statistics):
+    def __init__(self, start: UInt32, ram: RAM32, logger: PR5Logger, stat: Statistics):
         super().__init__(start, ram, logger)
         self.stats = stat
 

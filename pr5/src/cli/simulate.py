@@ -3,12 +3,12 @@ import os
 import logging
 import sys
 
-import src.hardware.ram as ram
+import src.hardware.ram32 as ram
 import src.io.loader as loader
 import src.utils.logger as logger
 from src.utils import stats
 from src.processor import SingleCycleProcessor, PipelinedProcessor
-from src.utils.constants import BYTE_WIDTH, XWIDTH, BASE_ADDR
+from src.utils.constants import BASE_ADDR
 
 
 def parse_args():
@@ -34,7 +34,7 @@ def parse_args():
         "--proc",
         type=str,
         default="SingleCycleProcessor",
-        help="Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor)"
+        help="Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor)",
     )
 
     return parser.parse_args()
@@ -70,7 +70,7 @@ def run_simulation():
 
     stat = stats.Statistics(loggr)
 
-    mem = ram.RAM(BYTE_WIDTH, XWIDTH, loggr)
+    mem = ram.RAM32(loggr)
     loader.load(mem, args.r5ob_path, BASE_ADDR)
 
     if args.proc == "SingleCycleProcessor":

@@ -5,10 +5,11 @@
 from pathlib import Path
 from typing import Union
 
-import src.hardware.ram as ram
+from src.hardware.ram32 import RAM32
+from src.utils.cint import *
 
 
-def load(ram: ram.RAM, r5ob_path: Union[str, Path], start_addr: int) -> int:
+def load(ram: RAM32, r5ob_path: Union[str, Path], start_addr: int) -> int:
     """
     Load the binary at `r5ob_path` into `ram`, starting at address `start_addr`.
 
@@ -25,7 +26,7 @@ def load(ram: ram.RAM, r5ob_path: Union[str, Path], start_addr: int) -> int:
 
     with open(r5ob_path, "rb") as f:
         while byte := f.read(1):
-            ram.write_byte(offset, byte[0])
+            ram.write_byte(uint32(offset), uint8(byte[0]))
             offset += 1
 
     return offset

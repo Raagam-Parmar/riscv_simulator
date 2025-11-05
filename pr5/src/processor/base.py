@@ -3,25 +3,20 @@ from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Optional
 
-from src.hardware.ram import RAM
+from src.hardware.ram32 import RAM32
 from src.utils.logger import PR5Logger
 from src.utils.constants import XWIDTH
 
 from src.disassembler import disassemble_error
 from src.isa.instructions import *
+from src.isa.properties import *
 from src.isa.opcodes import *
 from src.hardware.reg import *
-from src.hardware.alu import *
-from src.utils.bits import sign_extend
+from src.hardware.alu import alu
+from src.utils.cint import *
 
 # TODO Remove regfile read in store stage
 # instead pass the v_rs2 value down the pipeline
-
-
-class UnimplementedExecution(Exception):
-    def __init__(self, inst: Instruction):
-        self.message = f"Execution of instruction '{inst}' is not implemented."
-        super().__init__(self.message)
 
 
 class PCSource(Enum):
@@ -39,7 +34,7 @@ class PC_IF_Latch:
     - Program counter
     """
 
-    pc: int
+    pc: UInt32
 
 
 @dataclass(frozen=True)
@@ -52,8 +47,8 @@ class IF_ID_Latch:
     - Fetched instruction
     """
 
-    inst: int
-    pc: int
+    inst: UInt32
+    pc: UInt32
 
 
 @dataclass(frozen=True)
@@ -69,10 +64,10 @@ class ID_EX_Latch:
 
     inst: Instruction
 
-    op1: int
-    op2: int
+    op1: UInt32
+    op2: UInt32
 
-    pc: int
+    pc: UInt32
 
 
 @dataclass(frozen=True)
@@ -88,8 +83,8 @@ class EX_MEM_Latch:
 
     inst: Instruction
 
-    pc: int
-    result: int
+    pc: UInt32
+    result: UInt32
 
 
 @dataclass(frozen=True)
@@ -106,13 +101,13 @@ class MEM_WB_Latch:
 
     inst: Instruction
 
-    result: int
-    loaded_data: Optional[int]
-    pc: int
+    result: UInt32
+    loaded_data: Optional[UInt32]
+    pc: UInt32
 
 
 class Processor(ABC):
-    def __init__(self, init_pc: int, ram: RAM, logger: PR5Logger) -> None:
+    def __init__(self, init_pc: UInt32, ram: RAM32, logger: PR5Logger) -> None:
         """
         Creates a new processor.
 
@@ -121,7 +116,7 @@ class Processor(ABC):
         :param logger: CPU events logger
         """
         self.init_pc = init_pc
-        self.regfile = RegisterFile(XWIDTH, zero_reg=True)
+        self.regfile = RegisterFile32(XWIDTH, zero_reg=True)
         self.mem = ram
         self.logr = logger
 
@@ -145,11 +140,11 @@ class Processor(ABC):
 
         try:
             instruction = self.mem.read_word(pc)
-            self.logr.debug(f"[F] Fetched instruction {instruction:08x} at PC {pc:08x}")
+            self.logr.debug(f"[F] Fetched instruction {instruction} at PC {uint32(pc)}")
             return IF_ID_Latch(inst=instruction, pc=pc)
 
         except ValueError as e:
-            self.logr.error(f"Error fetching instruction at {pc:08x}: {e}")
+            self.logr.error(f"Error fetching instruction at {pc}: {e}")
             exit()
 
     def decode(self, if_id_latch: IF_ID_Latch) -> Instruction:
@@ -180,52 +175,37 @@ class Processor(ABC):
         :raises UnimplementedExecution: If execution of the instruction is unimplemented
         """
 
+        op1: UInt32
+        op2: UInt32
+
         match inst:
-            case Reg_reg():
+            case Reg_reg() | Branch():
                 op1 = self.regfile.read(inst.rs1)
                 op2 = self.regfile.read(inst.rs2)
-
-                if inst.op is Reg_reg_ops.SUB:
-                    op2 = -1 * op2
 
             case Reg_imm() | Store() | Load() | Jalr():
                 op1 = self.regfile.read(inst.rs1)
-                op2 = inst.imm
-
-            case Branch():
-                op1 = self.regfile.read(inst.rs1)
-                op2 = self.regfile.read(inst.rs2)
-
-                match inst.op:
-                    case Branch_ops.BLTU | Branch_ops.BGEU:
-                        pass
-                    case _:
-                        op1 = sign_extend(op1, XWIDTH)
-                        op2 = sign_extend(op2, XWIDTH)
+                op2 = uint32(inst.imm)
 
             case Upper_imm():
                 match inst.op:
+                    # The left shifting is done by the immediate generation unit
+                    # not the ALU
                     case Upper_imm_ops.LUI:
-                        # NOTE imm << 12
-                        # e_sll functional unit used
-                        op1 = inst.imm
-                        op2 = 12
+                        op1 = uint32(inst.imm << 12)  # TODO Magic number 12
+                        op2 = uint32(0)
                     case Upper_imm_ops.AUIPC:
-                        # NOTE pc + (imm << 12)
-                        # e_auipc functional unit used
-                        op1 = if_id.pc
-                        op2 = inst.imm
+                        op1 = uint32(inst.imm << 12)  # TODO Magic number 12
+                        op2 = if_id.pc
 
             case Jal():
-                # NOTE pc + imm
-                # e_add functional unit used
-                op1 = if_id.pc
-                op2 = inst.imm
+                op1 = uint32(inst.imm)
+                op2 = if_id.pc
 
-            case _:
+            case Misc_mem() | Atomic() | Env() | Zicsr_reg_imm() | Zicsr_reg_reg():
                 raise UnimplementedExecution(inst)
 
-        self.logr.debug(f"    Fetched operands")
+        self.logr.debug(f"    Fetched operands and immediate generated:")
         self.logr.debug(f"     - op1 = {op1}")
         self.logr.debug(f"     - op2 = {op2}")
 
@@ -247,13 +227,18 @@ class Processor(ABC):
         """
         op1 = id_ex_latch.op1
         op2 = id_ex_latch.op2
-        op = id_ex_latch.inst.op
+        inst = id_ex_latch.inst
+        op = inst.op
 
-        result = function_tbl[op](op1, op2)
-        self.logr.debug(f"[E] ALU Result of {op} is: {hex(result)}")
+        result = alu(op1, op2, op)
+
+        if result is None:
+            raise UnimplementedExecution(inst)
+
+        self.logr.debug(f"[E] ALU Result of {op} is: {result}")
 
         return EX_MEM_Latch(
-            inst=id_ex_latch.inst,
+            inst=inst,
             result=result,
             pc=id_ex_latch.pc,
         )
@@ -271,16 +256,16 @@ class Processor(ABC):
         result = ex_mem_latch.result
         pc = ex_mem_latch.pc
 
-        next_pc = pc + 4
+        next_pc = pc + uint32(4)
         pc_src = PCSource.PLUS_4
 
         match inst:
             case Branch():
                 imm = inst.imm
                 # Result is true if and only if the branch is taken
-                if result:
+                if result != 0:
                     # Branch taken
-                    next_pc = pc + imm
+                    next_pc = pc + uint32(imm)
                     pc_src = PCSource.IMM
 
             case Jal() | Jalr():
@@ -298,7 +283,7 @@ class Processor(ABC):
             case PCSource.ALU_OUT:
                 self.logr.debug(f"[U] PC = alu_result")
 
-        self.logr.debug(f"    {hex(pc)} -> {hex(next_pc)}")
+        self.logr.debug(f"    {pc} -> {next_pc}")
 
         return PC_IF_Latch(pc=next_pc)
 
@@ -317,19 +302,17 @@ class Processor(ABC):
         match inst:
             case Load():
                 addr = ex_mem_latch.result
-                loaded_data = 0
+                loaded_data: UInt32 = uint32(0)
 
                 match inst.op:
                     case Load_ops.LBU:
-                        loaded_data = self.mem.read_byte(addr)
+                        loaded_data = uint32(self.mem.read_byte(addr))
                     case Load_ops.LB:
-                        loaded_data = sign_extend(self.mem.read_byte(addr), XWIDTH // 4)
+                        loaded_data = sext_uint32(self.mem.read_byte(addr))
                     case Load_ops.LHU:
-                        loaded_data = self.mem.read_halfword(addr)
+                        loaded_data = uint32(self.mem.read_halfword(addr))
                     case Load_ops.LH:
-                        loaded_data = sign_extend(
-                            self.mem.read_halfword(addr), XWIDTH // 2
-                        )
+                        loaded_data = sext_uint32(self.mem.read_halfword(addr))
                     case Load_ops.LW:
                         loaded_data = self.mem.read_word(addr)
 
@@ -346,22 +329,20 @@ class Processor(ABC):
 
             case Store():
                 addr = ex_mem_latch.result
-                loaded_data = 0
+                loaded_data: UInt32 = uint32(0)
 
                 rs2 = inst.rs2 if inst.rs2 else 0
                 data = self.regfile.read(rs2)
 
                 match inst.op:
                     case Store_ops.SB:
-                        self.mem.write_byte(addr, data)
+                        self.mem.write_byte(addr, uint8(data))
                     case Store_ops.SH:
-                        self.mem.write_halfword(addr, data)
+                        self.mem.write_halfword(addr, uint16(data))
                     case Store_ops.SW:
                         self.mem.write_word(addr, data)
 
-                self.logr.debug(
-                    f"[M] Stored data {data} to memory address {addr}"
-                )
+                self.logr.debug(f"[M] Stored data {data} to memory address {addr}")
 
                 return MEM_WB_Latch(
                     inst=inst,
@@ -371,9 +352,7 @@ class Processor(ABC):
                 )
 
             case _:
-                self.logr.debug(
-                    f"[M] Idle"
-                )
+                self.logr.debug(f"[M] Idle")
 
                 return MEM_WB_Latch(
                     inst=inst,
@@ -401,8 +380,8 @@ class Processor(ABC):
         match inst:
             case Branch() | Env():
                 self.logr.out(
-                    f"{pc:08x} | "
-                    + f"next_pc = {next_pc:08x} | "
+                    f"{int(pc):08x} | "
+                    + f"next_pc = {int(next_pc):08x} | "
                     + f"x? = {0:08x} | "
                     + f"mem[?] = {0:08x}"
                 )
@@ -417,10 +396,10 @@ class Processor(ABC):
                     loaded_data = 0
 
                 self.logr.out(
-                    f"{pc:08x} | "
-                    + f"next_pc = {next_pc:08x} | "
-                    + f"x{rd} = {self.regfile.read(rd):08x} | "
-                    + f"mem[{result:08x}] => {loaded_data:08x}"
+                    f"{int(pc):08x} | "
+                    + f"next_pc = {int(next_pc):08x} | "
+                    + f"x{rd} = {int(self.regfile.read(rd)):08x} | "
+                    + f"mem[{int(result):08x}] => {int(loaded_data):08x}"
                 )
                 return
 
@@ -431,10 +410,10 @@ class Processor(ABC):
                 data = self.regfile.read(rs2 if rs2 else 0)
 
                 self.logr.out(
-                    f"{pc:08x} | "
-                    + f"next_pc = {next_pc:08x} | "
+                    f"{int(pc):08x} | "
+                    + f"next_pc = {int(next_pc):08x} | "
                     + f"x? = {0:08x} | "
-                    + f"mem[{result:08x}] <= {data:08x}"
+                    + f"mem[{int(result):08x}] <= {int(data):08x}"
                 )
                 return
 
@@ -442,9 +421,9 @@ class Processor(ABC):
                 # rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
                 rd = inst.rd
                 self.logr.out(
-                    f"{pc:08x} | "
-                    + f"next_pc = {next_pc:08x} | "
-                    + f"x{rd} = {self.regfile.read(rd):08x} | "
+                    f"{int(pc):08x} | "
+                    + f"next_pc = {int(next_pc):08x} | "
+                    + f"x{rd} = {int(self.regfile.read(rd)):08x} | "
                     + f"mem[?] = {0:08x}"
                 )
 
@@ -467,10 +446,10 @@ class Processor(ABC):
                 result = mem_wb_latch.result
 
                 if loaded_data is None:
-                    loaded_data = 0
+                    loaded_data = uint32(0)
 
                 self.regfile.write(rd, loaded_data)
-                self.logr.debug(f"[W] Written {hex(loaded_data)} to x{rd}")
+                self.logr.debug(f"[W] Written {loaded_data} to x{rd}")
 
                 return
 
@@ -485,7 +464,7 @@ class Processor(ABC):
                 v_rd = result
 
                 self.regfile.write(rd, v_rd)
-                self.logr.debug(f"[W] Written {hex(v_rd)} to x{rd}")
+                self.logr.debug(f"[W] Written {v_rd} to x{rd}")
 
                 return
 
@@ -496,7 +475,7 @@ class Processor(ABC):
             case _:
                 rd = inst.rd
                 self.regfile.write(rd, result)
-                self.logr.debug(f"[W] Written {hex(result)} to x{rd}")
+                self.logr.debug(f"[W] Written {result} to x{rd}")
 
                 return
 
