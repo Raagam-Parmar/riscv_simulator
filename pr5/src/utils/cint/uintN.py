@@ -1,6 +1,6 @@
 from __future__ import annotations
 from math import ceil
-
+from typing import Self
 from src.utils.bits import unsigned_max, sign_extend
 
 
@@ -43,170 +43,139 @@ class UIntN:
 
     # ------------------------------- Arithmetic --------------------------------- #
 
-    def __neg__(self) -> UIntN:
-        return UIntN(-self.value)
+    def __neg__(self) -> Self:
+        return type(self)(-self.value)
 
-    def __add__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value + other_value)
+    def __add__(self, other: Self) -> Self:
+        return type(self)(self.value + other.value)
 
-    def __iadd__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        self.value = (self.value + other_value) % (self.UINT_MAX + 1)
+    def __iadd__(self, other: Self) -> Self:
+        self.value = (self.value + other.value) % (self.UINT_MAX + 1)
         return self
 
-    def __radd__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(other_value + self.value)
+    def __radd__(self, other: Self) -> Self:
+        return type(self)(other.value + self.value)
 
-    def __sub__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value - other_value)
+    def __sub__(self, other: Self) -> Self:
+        return type(self)(self.value - other.value)
 
-    def __isub__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        self.value = (self.value - other_value) % (self.UINT_MAX + 1)
+    def __isub__(self, other: Self) -> Self:
+        self.value = (self.value - other.value) % (self.UINT_MAX + 1)
         return self
 
-    def __rsub__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(other_value - self.value)
+    def __rsub__(self, other: Self) -> Self:
+        return type(self)(other.value - self.value)
 
-    def __mul__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value * other_value)
+    def __mul__(self, other: Self) -> Self:
+        return type(self)(self.value * other.value)
 
-    def __imul__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        self.value = (self.value * other_value) % (self.UINT_MAX + 1)
+    def __imul__(self, other: Self) -> Self:
+        self.value = (self.value * other.value) % (self.UINT_MAX + 1)
         return self
 
-    def __rmul__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(other_value * self.value)
+    def __rmul__(self, other: Self) -> Self:
+        return type(self)(other.value * self.value)
 
-    def __floordiv__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value // other_value)
+    def __floordiv__(self, other: Self) -> Self:
+        return type(self)(self.value // other.value)
 
-    def __ifloordiv__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        self.value = (self.value // other_value) % (self.UINT_MAX + 1)
+    def __ifloordiv__(self, other: Self) -> Self:
+        self.value = (self.value // other.value) % (self.UINT_MAX + 1)
         return self
 
-    def __rfloordiv__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(other_value // self.value)
+    def __rfloordiv__(self, other: Self) -> Self:
+        return type(self)(other.value // self.value)
 
-    def __mod__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value % other_value)
+    def __mod__(self, other: Self) -> Self:
+        return type(self)(self.value % other.value)
 
-    def __imod__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        self.value = (self.value % other_value) % (self.UINT_MAX + 1)
+    def __imod__(self, other: Self) -> Self:
+        self.value = (self.value % other.value) % (self.UINT_MAX + 1)
         return self
 
-    def __rmod__(self, other: UIntN | int) -> UIntN:
-        other_value = other.value if isinstance(other, UIntN) else other
-        return UIntN(other_value % self.value)
+    def __rmod__(self, other: Self) -> Self:
+        return type(self)(other.value % self.value)
 
     # -------------------------------- Bitwise ----------------------------------- #
 
-    def __invert__(self) -> UIntN:
-        return UIntN(self.value ^ self.UINT_MAX)
+    def __invert__(self) -> Self:
+        return type(self)(self.value ^ self.UINT_MAX)
 
-    def __and__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value & v)
+    def __and__(self, other: Self) -> Self:
+        return type(self)(self.value & other.value)
 
-    def __iand__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        self.value &= v
+    def __iand__(self, other: Self) -> Self:
+        self.value &= other.value
         return self
 
-    def __rand__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(v & self.value)
+    def __rand__(self, other: Self) -> Self:
+        return type(self)(other.value & self.value)
 
-    def __or__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value | v)
+    def __or__(self, other: Self) -> Self:
+        return type(self)(self.value | other.value)
 
-    def __ior__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        self.value |= v
+    def __ior__(self, other: Self) -> Self:
+        self.value |= other.value
         return self
 
-    def __ror__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(v | self.value)
+    def __ror__(self, other: Self) -> Self:
+        return type(self)(other.value | self.value)
 
-    def __xor__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(self.value ^ v)
+    def __xor__(self, other: Self) -> Self:
+        return type(self)(self.value ^ other.value)
 
-    def __ixor__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        self.value ^= v
+    def __ixor__(self, other: Self) -> Self:
+        self.value ^= other.value
         return self
 
-    def __rxor__(self, other: UIntN | int) -> UIntN:
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(v ^ self.value)
+    def __rxor__(self, other: Self) -> Self:
+        return type(self)(other.value ^ self.value)
 
-    def __lshift__(self, other: UIntN | int) -> UIntN:
-        shift = other.value if isinstance(other, UIntN) else other
+    def __lshift__(self, other: Self) -> Self:
+        shift = other.value
         shift %= self.UINT_WIDTH
-        return UIntN(self.value << shift)
+        return type(self)(self.value << shift)
 
-    def __ilshift__(self, other: UIntN | int) -> UIntN:
-        shift = other.value if isinstance(other, UIntN) else other
+    def __ilshift__(self, other: Self) -> Self:
+        shift = other.value
         shift %= self.UINT_WIDTH
         self.value = (self.value << shift) & self.UINT_MAX
         return self
 
-    def __rlshift__(self, other: UIntN | int) -> UIntN:
-        shift = other.value if isinstance(other, UIntN) else other
+    def __rlshift__(self, other: Self) -> Self:
+        shift = other.value
         shift %= self.UINT_WIDTH
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN(v << shift)
+        return type(self)(other.value << shift)
 
-    def __rshift__(self, other: UIntN | int) -> UIntN:
-        shift = other.value if isinstance(other, UIntN) else other
+    def __rshift__(self, other: Self) -> Self:
+        shift = other.value
         shift %= self.UINT_WIDTH
-        return UIntN(self.value >> shift)
+        return type(self)(self.value >> shift)
 
-    def __irshift__(self, other: UIntN | int) -> UIntN:
-        shift = other.value if isinstance(other, UIntN) else other
+    def __irshift__(self, other: Self) -> Self:
+        shift = other.value
         shift %= self.UINT_WIDTH
         self.value >>= shift
         return self
 
-    def __rrshift__(self, other: UIntN | int) -> UIntN:
-        shift = other.value if isinstance(other, UIntN) else other
+    def __rrshift__(self, other: Self) -> Self:
+        shift = other.value
         shift %= self.UINT_WIDTH
-        v = other.value if isinstance(other, UIntN) else other
-        return UIntN((v % (self.UINT_MAX + 1)) >> shift)
+        v = other.value
+        return type(self)((v % (self.UINT_MAX + 1)) >> shift)
 
-    def sra(self, other: UIntN | int) -> UIntN:
+    def sra(self, other: Self) -> Self:
         """
         Arithmetic right shift
         """
-        shift = other.value if isinstance(other, UIntN) else other
+        shift = other.value
         shift %= self.UINT_WIDTH
-        return UIntN(self.signed() >> shift)
+        return type(self)(self.signed() >> shift)
 
     # ------------------------------- Comparisons -------------------------------- #
 
-    def _other_val(self, other: UIntN | int) -> int:
-        if isinstance(other, UIntN):
-            return other.value
-
-        return other % (self.UINT_MAX + 1)
-
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, UIntN):
+        if type(other) is type(self):
             return self.value == other.value
 
         if isinstance(other, int):
@@ -214,32 +183,22 @@ class UIntN:
 
         return NotImplemented
 
-    def __lt__(self, other: UIntN | int) -> bool:
-        v = self._other_val(other)
-        return self.value < v
+    def __lt__(self, other: Self) -> bool:
+        return self.value < other.value
 
-    def __gt__(self, other: UIntN | int) -> bool:
-        v = self._other_val(other)
-        return self.value > v
+    def __gt__(self, other: Self) -> bool:
+        return self.value > other.value
 
-    def __le__(self, other: UIntN | int) -> bool:
-        v = self._other_val(other)
-        return self.value <= v
+    def __le__(self, other: Self) -> bool:
+        return self.value <= other.value
 
-    def __ge__(self, other: UIntN | int) -> bool:
-        v = self._other_val(other)
-        return self.value >= v
+    def __ge__(self, other: Self) -> bool:
+        return self.value >= other.value
 
-    def lt_signed(self, other: UIntN | int) -> bool:
-        if not isinstance(other, UIntN):
-            return NotImplemented
-
+    def lt_signed(self, other: Self) -> bool:
         return self.signed() < other.signed()
 
-    def gt_signed(self, other: UIntN | int) -> bool:
-        if not isinstance(other, UIntN):
-            return NotImplemented
-
+    def gt_signed(self, other: Self) -> bool:
         return self.signed() > other.signed()
 
     # --------------------------------- Display ---------------------------------- #
