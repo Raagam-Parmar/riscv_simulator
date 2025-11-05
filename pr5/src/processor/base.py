@@ -262,7 +262,6 @@ class Processor(ABC):
         match inst:
             case Branch():
                 imm = inst.imm
-                # Result is true if and only if the branch is taken
                 if result != 0:
                     # Branch taken
                     next_pc = pc + uint32(imm)
@@ -272,7 +271,18 @@ class Processor(ABC):
                 next_pc = result
                 pc_src = PCSource.ALU_OUT
 
-            case _:
+            case (
+                Reg_reg()
+                | Reg_imm()
+                | Load()
+                | Store()
+                | Upper_imm()
+                | Misc_mem()
+                | Atomic()
+                | Env()
+                | Zicsr_reg_reg()
+                | Zicsr_reg_imm()
+            ):
                 pass
 
         match pc_src:
@@ -283,7 +293,7 @@ class Processor(ABC):
             case PCSource.ALU_OUT:
                 self.logr.debug(f"[U] PC = alu_result")
 
-        self.logr.debug(f"    {pc} -> {next_pc}")
+        self.logr.debug(f"    {uint32(pc)} -> {uint32(next_pc)}")
 
         return PC_IF_Latch(pc=next_pc)
 
@@ -351,7 +361,19 @@ class Processor(ABC):
                     pc=ex_mem_latch.pc,
                 )
 
-            case _:
+            case (
+                Reg_reg()
+                | Reg_imm()
+                | Jalr()
+                | Branch()
+                | Upper_imm()
+                | Jal()
+                | Misc_mem()
+                | Atomic()
+                | Env()
+                | Zicsr_reg_reg()
+                | Zicsr_reg_imm()
+            ):
                 self.logr.debug(f"[M] Idle")
 
                 return MEM_WB_Latch(
@@ -364,18 +386,18 @@ class Processor(ABC):
     def log_instruction(
         self, mem_wb_latch: MEM_WB_Latch, pc_if_latch: PC_IF_Latch
     ) -> None:
-        # TODO Make documentation better.
         # TODO Check if the data structures need refinement
         """
-        Log the executed instruction, given the current state and next pc value
+        Log the executed instruction, given the current state and next pc value, in the
+        format:
+
+        current_pc | next_pc | optional rd | optional memory write
         """
         # NOTE: CAUTION - Changing the outputs here will violate test cases
         result = mem_wb_latch.result
         inst = mem_wb_latch.inst
         pc = mem_wb_latch.pc
         next_pc = pc_if_latch.pc
-
-        # current_ps | next_pc | optional rd | optional memory write
 
         match inst:
             case Branch() | Env():
@@ -417,8 +439,17 @@ class Processor(ABC):
                 )
                 return
 
-            case _:
-                # rd = mem_wb_latch.rd if mem_wb_latch.rd else 0
+            case (
+                Reg_reg()
+                | Reg_imm()
+                | Jalr()
+                | Upper_imm()
+                | Jal()
+                | Misc_mem()
+                | Atomic()
+                | Zicsr_reg_reg()
+                | Zicsr_reg_imm()
+            ):
                 rd = inst.rd
                 self.logr.out(
                     f"{int(pc):08x} | "
@@ -472,7 +503,14 @@ class Processor(ABC):
                 self.logr.debug(f"[W] Idle")
                 return
 
-            case _:
+            case (
+                Reg_reg()
+                | Upper_imm()
+                | Misc_mem()
+                | Atomic()
+                | Zicsr_reg_reg()
+                | Zicsr_reg_imm()
+            ):
                 rd = inst.rd
                 self.regfile.write(rd, result)
                 self.logr.debug(f"[W] Written {result} to x{rd}")
