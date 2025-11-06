@@ -20,7 +20,7 @@ def e_sub(op1: UInt32, op2: UInt32) -> UInt32:
     """(Sub)
     `op1 - op2`
     """
-    return op1 + op2
+    return op1 - op2
 
 
 def e_xor(op1: UInt32, op2: UInt32) -> UInt32:
