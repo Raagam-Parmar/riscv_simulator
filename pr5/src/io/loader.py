@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import Union
 
-from src.hardware.ram32 import RAM32
+from src.hardware.memory.ram32 import RAM32
 from src.utils.cint import *
 
 

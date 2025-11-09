@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from src.hardware.ram32 import RAM32
+from src.hardware.memory.ram32 import RAM32
 from src.utils.logger import PR5Logger
 from src.utils.stats import Statistics
 from src.processor.base import *

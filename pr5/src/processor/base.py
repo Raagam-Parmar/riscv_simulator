@@ -3,7 +3,7 @@ from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Optional
 
-from src.hardware.ram32 import RAM32
+from src.hardware.memory.ram32 import RAM32
 from src.utils.logger import PR5Logger
 from src.utils.constants import XWIDTH
 

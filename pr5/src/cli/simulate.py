@@ -3,7 +3,7 @@ import os
 import logging
 import sys
 
-import src.hardware.ram32 as ram
+from src.hardware.memory.ram32 import RAM32
 import src.io.loader as loader
 import src.utils.logger as logger
 from src.utils import stats
@@ -70,7 +70,7 @@ def run_simulation():
 
     stat = stats.Statistics(loggr)
 
-    mem = ram.RAM32(loggr)
+    mem = RAM32(loggr)
     loader.load(mem, args.r5ob_path, BASE_ADDR)
 
     if args.proc == "SingleCycleProcessor":
