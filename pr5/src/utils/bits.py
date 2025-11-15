@@ -2,6 +2,8 @@
 # Bit Manipulation Utilities
 """
 
+from math import log2
+
 # Functions to calculate the range of signed and unsigned numbers,
 # given the width of the storage unit.
 
@@ -38,6 +40,13 @@ def sign_extend(x: int, width: int) -> int:
     x &= mask
     sign = 1 << (width - 1)
     return (x ^ sign) - sign
+
+
+def is_power_of_two(x: int) -> bool:
+    """
+    Is positive number `x` a power of two ?
+    """
+    return log2(x) % 1 == 0
 
 
 # ---------------------------------------------------------------------------- #
