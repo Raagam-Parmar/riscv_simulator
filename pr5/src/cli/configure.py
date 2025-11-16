@@ -47,7 +47,8 @@ class ConfigReader:
         return self.config.getint("General", "num_insts")
 
     def get_start(self) -> int:
-        return self.config.getint("General", "start")
+        start_hex_str = self.config.get("General", "start")
+        return int(start_hex_str, 16)
 
     def get_log_level(self) -> str:
         return self.config.get("Logging", "log_level")
@@ -60,11 +61,11 @@ class ConfigReader:
         proc = self.config.get("Processor", "type")
 
         match proc:
-            case "SingleCycle":
+            case "SingleCycleProcessor":
                 return ProcType.SINGLE_CYCLE
-            case "Pipelined":
+            case "PipelinedProcessor":
                 return ProcType.STALL_PIPELINE
-            case "FPipelined":
+            case "FPipelinedProcessor":
                 return ProcType.FWD_PIPELINE
             case _:
                 raise ValueError(f"Invalid processor type: {proc}")

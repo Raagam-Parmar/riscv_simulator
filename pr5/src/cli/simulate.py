@@ -12,6 +12,7 @@ from src.cli.configure import ConfigReader
 from src.hardware.memory.cache.cache import CacheType
 from src.hardware.memory.hierarchy import MemoryHierarchy
 from src.processor import ProcType
+from src.utils.cint import *
 
 
 def parse_args():
@@ -20,18 +21,17 @@ def parse_args():
     parser.add_argument("r5ob_path", type=str, help="Path to the input r5ob file")
 
     parser.add_argument(
-        "--config", type=str, help="Path to config file", default="config.ini"
+        "--config", type=str, help="Path to config file"
     )
 
     parser.add_argument(
-        "--stats_file", type=str, help="Statistics output file", default="stats.json"
+        "--stats_file", type=str, help="Statistics output file"
     )
 
     parser.add_argument(
         "--num_insts",
         type=int,
-        default=1000,
-        help="Number of instructions to simulate (default: 1000)",
+        help="Number of instructions to simulate",
     )
 
     parser.add_argument(
@@ -40,12 +40,11 @@ def parse_args():
         help="Start PC in hex (e.g. 0x80000000)",
     )
 
-    parser.add_argument("--log_level", type=str, default="DEBUG", help="Logging level")
+    parser.add_argument("--log_level", type=str, help="Logging level")
 
     parser.add_argument(
         "--proc",
         type=str,
-        default="SingleCycleProcessor",
         help="Processor to use for simulation (SingleCycleProcessor / PipelinedProcessor / FPipelinedProcessor)",
     )
 
@@ -103,17 +102,17 @@ def run_simulation():
     l2_config = config.get_cache_config(CacheType.L2)
     ram_config = config.get_ram_config()
 
-    mem = MemoryHierarchy(l1i_config, l1d_config, l2_config, ram_config, loggr)
+    mem = MemoryHierarchy(l1i_config, l1d_config, l2_config, ram_config, loggr, stat)
 
     loader.load(mem.ram, args.r5ob_path, BASE_ADDR)
 
     match proc_type:
         case ProcType.SINGLE_CYCLE:
-            processor = SingleCycleProcessor(args.start, mem, loggr, stat)
+            processor = SingleCycleProcessor(UInt32(start), mem, loggr, stat)
         case ProcType.STALL_PIPELINE:
-            processor = PipelinedProcessor(args.start, mem, loggr, stat)
+            processor = PipelinedProcessor(UInt32(start), mem, loggr, stat)
         case ProcType.FWD_PIPELINE:
-            processor = ForwardingPipelined(args.start, mem, loggr, stat)
+            processor = ForwardingPipelined(UInt32(start), mem, loggr, stat)
 
     loggr.info(f"Start address: {hex(start)}")
     loggr.info(f"Executable path: {r5ob_path}")
