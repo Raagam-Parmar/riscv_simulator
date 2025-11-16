@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from src.hardware.memory.ram32 import RAM32
 from src.utils.logger import PR5Logger
 from src.utils.stats import Statistics
 from src.processor.base import *
 from src.disassembler import disassemble_error
 from src.isa.properties import *
 from src.hardware.alu import *
+from src.hardware.memory.hierarchy import MemoryHierarchy
 
 
 @dataclass(frozen=True)
@@ -53,8 +53,8 @@ class PipelineControl:
 
 
 class ForwardingPipelined(Processor):
-    def __init__(self, start: UInt32, ram: RAM32, logger: PR5Logger, stats: Statistics):
-        super().__init__(start, ram, logger)
+    def __init__(self, start: UInt32, mem: MemoryHierarchy, logger: PR5Logger, stats: Statistics):
+        super().__init__(start, mem, logger)
         self.stats = stats
 
     def execute_pipelined(self, latches: PipelineLatches) -> Optional[EX_MEM_Latch]:

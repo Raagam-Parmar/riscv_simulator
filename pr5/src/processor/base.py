@@ -3,7 +3,6 @@ from enum import Enum, auto
 from dataclasses import dataclass
 from typing import Optional
 
-from src.hardware.memory.ram32 import RAM32
 from src.utils.logger import PR5Logger
 from src.utils.constants import XWIDTH
 
@@ -13,6 +12,7 @@ from src.isa.properties import *
 from src.isa.opcodes import *
 from src.hardware.reg import *
 from src.hardware.alu import alu
+from src.hardware.memory.hierarchy import MemoryHierarchy
 from src.utils.cint import *
 
 # TODO Remove regfile read in store stage
@@ -112,7 +112,7 @@ class MEM_WB_Latch:
 
 
 class Processor(ABC):
-    def __init__(self, init_pc: UInt32, ram: RAM32, logger: PR5Logger) -> None:
+    def __init__(self, init_pc: UInt32, mem: MemoryHierarchy, logger: PR5Logger) -> None:
         """
         Creates a new processor.
 
@@ -122,7 +122,7 @@ class Processor(ABC):
         """
         self.init_pc = init_pc
         self.regfile = RegisterFile32(XWIDTH, zero_reg=True)
-        self.mem = ram
+        self.mem = mem
         self.logr = logger
 
     def initialise_pc(self):
@@ -144,7 +144,7 @@ class Processor(ABC):
         pc = pc_if_latch.pc
 
         try:
-            instruction = self.mem.read_word(pc)
+            instruction = self.mem.read_word_inst(pc)
             self.logr.debug(f"[F] Fetched instruction {instruction} at PC {uint32(pc)}")
             return IF_ID_Latch(inst=instruction, pc=pc)
 
