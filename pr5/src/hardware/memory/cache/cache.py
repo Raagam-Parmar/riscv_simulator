@@ -2,12 +2,13 @@
 
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from math import log2
 
 from src.utils.bits import is_power_of_two
 from src.utils.cint import *
 from src.utils.field import Field
+from src.utils.logger import PR5Logger
 from src.hardware.memory.cache.policy_random import PolicyRandom
 from src.hardware.memory.cache.policy_lru import PolicyLRU
 from src.hardware.memory.cache.policy_fifo import PolicyFIFO
@@ -29,9 +30,9 @@ class CacheConfigError(Exception):
 
 
 class CacheType(Enum):
-    I1_CACHE = auto()
-    L1_CACHE = auto()
-    L2_CACHE = auto()
+    L1D = auto()
+    L1I = auto()
+    L2 = auto()
 
 
 class ReplacementPolicy(Enum):
@@ -83,6 +84,7 @@ DataBlock = List[UInt8]
 @dataclass
 class CacheBlock:
     valid: bool
+    dirty: bool
     tag: int
     data: DataBlock
 
@@ -93,15 +95,17 @@ class CacheSet:
     repl_policy: ReplacementPolicy
 
     def __post_init__(self) -> None:
-        self.blocks: List[CacheBlock] = []
+        self.blocks: List[CacheBlock] = [
+            CacheBlock(False, False, 0, []) for _ in range(self.ways)
+        ]
 
         match self.repl_policy:
             case ReplacementPolicy.RANDOM:
-                self._policy_algo = PolicyRandom(self.ways)
+                self.policy_algo = PolicyRandom(self.ways)
             case ReplacementPolicy.LRU:
-                self._policy_algo = PolicyLRU(self.ways)
+                self.policy_algo = PolicyLRU(self.ways)
             case ReplacementPolicy.FIFO:
-                self._policy_algo = PolicyFIFO(self.ways)
+                self.policy_algo = PolicyFIFO(self.ways)
 
 
 class Cache32:
@@ -173,8 +177,30 @@ class Cache32:
         """Extract byte index (in word) from 32-bit address"""
         return self.byte_idx_field.extract(addr.unsigned())
 
-    def __init__(self, config: CacheConfig) -> None:
+    def _check_halfword_addr(self, addr: UInt32) -> None:
+        """
+        Verify that the halfword address is 2-byte aligned
+
+        :raises AddressMisaligned: If address is not 2-byte aligned
+        """
+
+        if addr & 0b1 != 0:
+            raise AddressMisaligned(addr, 2)
+
+    def _check_word_addr(self, addr: UInt32) -> None:
+        """
+        Verify that the word address is 4-byte aligned
+
+        :raises AddressMisaligned: If address is not 4-byte aligned
+        """
+
+        if addr & 0b11 != 0:
+            raise AddressMisaligned(addr, 4)
+
+    def __init__(self, config: CacheConfig, logger: PR5Logger) -> None:
         self._validate(config)
+
+        self.logger = logger
 
         self.latency = config.latency
 
@@ -187,26 +213,20 @@ class Cache32:
         byte_field_width = int(log2(self.block_size))
         byte_field_hi = byte_field_width - 1
         self.byte_idx_field = Field(byte_field_hi, 0)
+        self.byte_field_width = byte_field_width
 
         set_field_width = int(log2(self.n_sets))
         set_field_lo = byte_field_hi + 1
         set_field_hi = set_field_lo + set_field_width - 1
         self.set_idx_field = Field(set_field_hi, set_field_lo)
+        self.set_field_width = set_field_width
 
         tag_field_lo = set_field_hi + 1
         tag_field_hi = 31
         self.tag_field = Field(tag_field_hi, tag_field_lo)
+        self.tag_field_width = tag_field_hi - tag_field_lo + 1
 
         self.repl_policy = config.repl_policy
-
-        match self.repl_policy:
-            case ReplacementPolicy.RANDOM:
-                self.policy_algo = PolicyRandom(self.ways)
-            case ReplacementPolicy.LRU:
-                self.policy_algo = PolicyLRU(self.ways)
-            case ReplacementPolicy.FIFO:
-                self.policy_algo = PolicyFIFO(self.ways)
-
         self.write_policy = config.write_policy
 
         self.sets = [
@@ -222,9 +242,11 @@ class Cache32:
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
+        sett = self.sets[set_idx]
 
-        for block in self.sets[set_idx].blocks:
+        for way, block in enumerate(sett.blocks):
             if block.valid and block.tag == tag:
+                sett.policy_algo.on_access(way)
                 return block.data[byte_idx]
 
         return None
@@ -234,12 +256,17 @@ class Cache32:
         Return the halfword at `addr` if present, otherwise return `None`.
         """
 
+        self._check_halfword_addr(addr)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
+        sett = self.sets[set_idx]
 
-        for block in self.sets[set_idx].blocks:
+        for way, block in enumerate(sett.blocks):
             if block.valid and block.tag == tag:
+                sett.policy_algo.on_access(way)
+
                 halfword = UInt16(0)
 
                 for i in range(2):
@@ -256,12 +283,17 @@ class Cache32:
         Return the word at `addr` if present, otherwise return `None`.
         """
 
+        self._check_word_addr(addr)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
+        sett = self.sets[set_idx]
 
-        for block in self.sets[set_idx].blocks:
+        for way, block in enumerate(sett.blocks):
             if block.valid and block.tag == tag:
+                sett.policy_algo.on_access(way)
+
                 word = UInt32(0)
 
                 for i in range(4):
@@ -281,9 +313,16 @@ class Cache32:
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
+        sett = self.sets[set_idx]
 
-        for block in self.sets[set_idx].blocks:
+        for way, block in enumerate(sett.blocks):
             if block.valid and block.tag == tag:
+                sett.policy_algo.on_access(way)
+
+                block.dirty = (
+                    True if self.write_policy is WritePolicy.WRITE_BACK else False
+                )
+
                 block.data[byte_idx] = byte
                 return WriteSignal.HIT
 
@@ -294,12 +333,21 @@ class Cache32:
         Write the halfword at `addr` if present and return `HIT`, otherwise return `MISS`
         """
 
+        self._check_halfword_addr(addr)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
+        sett = self.sets[set_idx]
 
-        for block in self.sets[set_idx].blocks:
+        for way, block in enumerate(sett.blocks):
             if block.valid and block.tag == tag:
+                sett.policy_algo.on_access(way)
+
+                block.dirty = (
+                    True if self.write_policy is WritePolicy.WRITE_BACK else False
+                )
+
                 for i in range(2):
                     byte = halfword >> (i * 8)
                     block.data[byte_idx + i] = uint8(byte)
@@ -313,12 +361,21 @@ class Cache32:
         Write the word at `addr` if present and return `HIT`, otherwise return `MISS`
         """
 
+        self._check_word_addr(addr)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
+        sett = self.sets[set_idx]
 
-        for block in self.sets[set_idx].blocks:
+        for way, block in enumerate(sett.blocks):
             if block.valid and block.tag == tag:
+                sett.policy_algo.on_access(way)
+
+                block.dirty = (
+                    True if self.write_policy is WritePolicy.WRITE_BACK else False
+                )
+
                 for i in range(4):
                     byte = word >> (i * 8)
                     block.data[byte_idx + i] = uint8(byte)
@@ -327,9 +384,49 @@ class Cache32:
 
         return WriteSignal.MISS
 
-    def insert(self, addr: UInt32, new_block: DataBlock) -> Optional[DataBlock]:
+    def insert(
+        self, addr: UInt32, new_block: DataBlock
+    ) -> Optional[Tuple[UInt32, DataBlock]]:
         """
-        Insert `block` into cache, return the possibly evicted block
+        Insert `block` into cache, return the possibly evicted dirty block and its base address
+        """
+
+        tag = self._get_tag(addr)
+        set_idx = self._get_set_idx(addr)
+        sett = self.sets[set_idx]
+
+        for way, block in enumerate(sett.blocks):
+            if not block.valid:
+                block.valid = True
+                block.tag = tag
+                block.data = new_block
+                block.dirty = False
+                sett.policy_algo.on_insert(way)
+                return None
+
+        evict_way = sett.policy_algo.on_evict()
+        evicted_block = sett.blocks[evict_way]
+        evict_tag = sett.blocks[evict_way].tag
+        dirty = sett.blocks[evict_way].dirty
+
+        base_addr = (
+            (evict_tag << self.set_field_width) | set_idx
+        ) << self.byte_field_width
+
+        evicted_block.valid = True
+        evicted_block.tag = tag
+        evicted_block.data = new_block
+        evicted_block.dirty = False
+        sett.policy_algo.on_insert(evict_way)
+
+        if dirty:
+            return UInt32(base_addr), evicted_block.data
+
+        return None
+
+    def copy_block(self, addr: UInt32) -> Optional[DataBlock]:
+        """
+        Copy the block containing `addr` if present, otherwise return `None`
         """
 
         tag = self._get_tag(addr)
@@ -337,18 +434,8 @@ class Cache32:
 
         blocks = self.sets[set_idx].blocks
 
-        for way, block in enumerate(blocks):
-            if not block.valid:
-                blocks[way].valid = True
-                blocks[way].tag = tag
-                blocks[way].data = new_block
-                return None
+        for block in blocks:
+            if block.valid and block.tag == tag:
+                return list(block.data)
 
-        evict_way = self.policy_algo.on_evict()
-        evicted_block = blocks[evict_way].data
-
-        blocks[evict_way].valid = True
-        blocks[evict_way].tag = tag
-        blocks[evict_way].data = new_block
-
-        return evicted_block
+        return None
