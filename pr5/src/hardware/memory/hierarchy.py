@@ -1,10 +1,11 @@
+from typing import Union
+
 from src.hardware.memory.cache.cache import (
     CacheConfig,
     Cache32,
     DataBlock,
     WritePolicy,
     WriteSignal,
-    CacheType,
 )
 from src.utils.cint import *
 from src.hardware.memory.ram32 import RAM32, RAMConfig
@@ -16,6 +17,9 @@ class MemoryHierarchyError(Exception):
     def __init__(self, msg: str):
         self.message = msg
         super().__init__(msg)
+
+
+MemoryUnit = Union[Cache32, RAM32]
 
 
 class MemoryHierarchy:
@@ -45,88 +49,106 @@ class MemoryHierarchy:
         ):
             raise MemoryHierarchyError(f"Caches must have same block size")
 
+        # Instruction inteface
+        if self.l1i.valid:
+            self.inst_unit = self.l1i
+            self.l1i.next_level = self.l2 if self.l2.valid else self.ram
+
+        elif self.l2.valid:
+            self.inst_unit = self.l2
+
+        else:
+            self.inst_unit = self.ram
+
+        # Data inteface
+        if self.l1d.valid:
+            self.data_unit = self.l1d
+            self.l1d.next_level = self.l2 if self.l2.valid else self.ram
+
+        elif self.l2.valid:
+            self.data_unit = self.l2
+
+        else:
+            self.data_unit = self.ram
+
+        # L2 next level pointer
+        if self.l2.valid:
+            self.l2.next_level = self.ram
+
     def _get_base_addr(self, addr: UInt32) -> UInt32:
         """
         Return the base address in any block given `addr`
         """
         return addr & (~(UInt32(self.block_size - 1)))
 
-    def read_block_ram(self, addr: UInt32) -> DataBlock:
-        """
-        Fetch block containing `addr` from the RAM. Auto aligns `addr` to block boundary
-        """
-        base_addr = self._get_base_addr(addr)
-        return self.ram.read_bytes_many(base_addr, self.block_size)
+    # def write_block_ram(self, addr: UInt32, new_block: DataBlock) -> None:
+    #     """
+    #     Write `block` into RAM, with base address `addr`. Auto aligns `addr` to block
+    #     boundary
+    #     """
+    #     base_addr = self._get_base_addr(addr)
+    #     self.ram.write_bytes_many(base_addr, new_block)
 
-    def write_block_ram(self, addr: UInt32, new_block: DataBlock) -> None:
-        """
-        Write `block` into RAM, with base address `addr`. Auto aligns `addr` to block
-        boundary
-        """
-        base_addr = self._get_base_addr(addr)
-        self.ram.write_bytes_many(base_addr, new_block)
+    def read_block_mu(self, addr: UInt32, memory_unit: MemoryUnit) -> DataBlock:
+        if isinstance(memory_unit, RAM32):
+            base_addr = self._get_base_addr(addr)
+            return self.ram.read_bytes_many(base_addr, self.block_size)
 
-    def read_block_l2(self, addr: UInt32) -> DataBlock:
-        """
-        Fetch block containing `addr` from `L2`. Request load from RAM if not present.
-        """
-        new_block = self.l2.copy_block(addr)
+        cache = memory_unit
+        new_block = cache.copy_block(addr)
 
         if new_block is not None:
             # cache hit
             return new_block
 
         # cache miss
-        new_block = self.read_block_ram(addr)
+        next_level_unit = cache.next_level
+        new_block = self.read_block_mu(addr, next_level_unit)
 
-        evicted = self.l2.insert(addr, new_block)
+        evicted = cache.insert(addr, new_block)
 
         if evicted is None:
             return new_block
 
         base_addr, evicted_block = evicted
 
-        self.write_block_ram(base_addr, evicted_block)
+        self.write_block_mu(base_addr, evicted_block, next_level_unit)
 
         return new_block
 
-    def write_block_l2(self, addr: UInt32, new_block: DataBlock) -> None:
-        """
-        Write `new_block` containing `addr` to L2. In case of eviction, write the
-        evicted block to RAM
-        """
+    def write_block_mu(
+        self, addr: UInt32, new_block: DataBlock, memory_unit: MemoryUnit
+    ) -> None:
+        if isinstance(memory_unit, RAM32):
+            base_addr = self._get_base_addr(addr)
+            self.ram.write_bytes_many(base_addr, new_block)
+            return None
 
-        evicted = self.l2.insert(addr, new_block)
+        cache = memory_unit
+        evicted = cache.insert(addr, new_block)
 
         if evicted is None:
             # no eviction
             return None
 
         # conflict eviction
+        next_level_unit = cache.next_level
         base_addr, evicted_block = evicted
-        self.write_block_ram(base_addr, evicted_block)
+        self.write_block_mu(base_addr, evicted_block, next_level_unit)
 
         if self.l2.write_policy is WritePolicy.WRITE_THROUGH:
-            self.write_block_ram(addr, new_block)
+            self.write_block_mu(addr, new_block, next_level_unit)
 
         return None
 
     # -------------------------------------------------------------------------------- #
     # Functions to read and write bytes
 
-    def read_byte_l1(self, addr: UInt32, cache_type: CacheType) -> UInt8:
-        """
-        Read byte at `addr` in L1 cache. Request load from lower levels if not present.
-        """
+    def read_byte_mu(self, addr: UInt32, memory_unit: MemoryUnit) -> UInt8:
+        if isinstance(memory_unit, RAM32):
+            return self.ram.read_byte(addr)
 
-        match cache_type:
-            case CacheType.L1I:
-                cache = self.l1i
-            case CacheType.L1D:
-                cache = self.l1d
-            case CacheType.L2:
-                raise MemoryHierarchyError(f"[BUG] Can not read directly from L2 Cache")
-
+        cache = memory_unit
         byte = cache.read_byte(addr)
 
         if byte is not None:
@@ -134,7 +156,8 @@ class MemoryHierarchy:
             return byte
 
         # cache miss
-        new_block = self.read_block_l2(addr)
+        next_level_cache = cache.next_level
+        new_block = self.read_block_mu(addr, next_level_cache)
         evicted = cache.insert(addr, new_block)
 
         byte = cache.read_byte(addr)
@@ -143,180 +166,53 @@ class MemoryHierarchy:
 
         if evicted is not None:
             base_addr, evicted_block = evicted
-            self.write_block_l2(base_addr, evicted_block)
+            self.write_block_mu(base_addr, evicted_block, next_level_cache)
 
         return byte
 
-    def write_byte_cache(self, addr: UInt32, byte: UInt8, cache_type: CacheType) -> None:
-        """
-        Write `byte` at `addr` in L1D, L1I or L2 Cache. Request load from lower levels if not
-        present.
-        """
-        match cache_type:
-            case CacheType.L1I:
-                cache = self.l1i
-            case CacheType.L1D:
-                cache = self.l1d
-            case CacheType.L2:
-                cache = self.l2
+    def write_byte_mu(self, addr: UInt32, byte: UInt8, memory_unit: MemoryUnit) -> None:
+        if isinstance(memory_unit, RAM32):
+            return self.ram.write_byte(addr, byte)
 
+        cache = memory_unit
         hitmiss = cache.write_byte(addr, byte)
+        next_level_cache = cache.next_level
 
-        match hitmiss:
-            case WriteSignal.HIT:
-                if cache.write_policy is WritePolicy.WRITE_THROUGH:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            self.write_byte_cache(addr, byte, CacheType.L2)
-                        case CacheType.L2:
-                            self.ram.write_byte(addr, byte)
-                            self.ram.latency
+        if hitmiss is WriteSignal.HIT:
+            if cache.write_policy is WritePolicy.WRITE_THROUGH:
+                self.write_byte_mu(addr, byte, next_level_cache)
 
-            case WriteSignal.MISS:
-                if cache.write_policy is WritePolicy.WRITE_THROUGH:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            self.write_byte_cache(addr, byte, CacheType.L2)
-                        case CacheType.L2:
-                            self.ram.write_byte(addr, byte)
-                            self.ram.latency
+        else:
+            # hitmiss was a MISS
+            if cache.write_policy is WritePolicy.WRITE_THROUGH:
+                # write through  -  write-no-allocate policy
+                self.write_byte_mu(addr, byte, next_level_cache)
 
-                else:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            new_block = self.read_block_l2(addr)
-                        case CacheType.L2:
-                            new_block = self.read_block_ram(addr)
+            else:
+                # write back  -  write-allocate policy
+                new_block = self.read_block_mu(addr, next_level_cache)
+                evicted = cache.insert(addr, new_block)
 
-                    evicted = cache.insert(addr, new_block)
+                hitmiss2 = cache.write_byte(addr, byte)
+                if hitmiss2 is WriteSignal.MISS:
+                    raise MemoryHierarchyError(
+                        f"[BUG] Write after refill must result in a hit"
+                    )
 
-                    hitmiss2 = cache.write_byte(addr, byte)
-                    if hitmiss2 is WriteSignal.MISS:
-                        raise MemoryHierarchyError(
-                            f"[BUG] Write after refill must result in a hit"
-                        )
-
-                    if evicted is not None:
-                        base_addr, evicted_block = evicted
-                        match cache_type:
-                            case CacheType.L1I | CacheType.L1D:
-                                self.write_block_l2(base_addr, evicted_block)
-                            case CacheType.L2:
-                                self.write_block_ram(base_addr, evicted_block)
-
-        return None
-
-    # -------------------------------------------------------------------------------- #
-    # Functions to read and write words
-
-    def read_word_l1(self, addr: UInt32, cache_type: CacheType) -> UInt32:
-        """
-        Read word at `addr` in L1 cache. Request load from lower levels if not present.
-        """
-
-        match cache_type:
-            case CacheType.L1I:
-                cache = self.l1i
-            case CacheType.L1D:
-                cache = self.l1d
-            case CacheType.L2:
-                raise MemoryHierarchyError(f"[BUG] Can not read directly from L2 Cache")
-
-        word = cache.read_word(addr)
-
-        if word is not None:
-            # cache hit
-            return word
-
-        # cache miss
-        new_block = self.read_block_l2(addr)
-        evicted = cache.insert(addr, new_block)
-
-        word = cache.read_word(addr)
-        if word is None:
-            raise MemoryHierarchyError(f"[BUG] Read after refill must result in a hit")
-
-        if evicted is not None:
-            base_addr, evicted_block = evicted
-            self.write_block_l2(base_addr, evicted_block)
-
-        return word
-
-    def write_word_cache(self, addr: UInt32, word: UInt32, cache_type: CacheType) -> None:
-        """
-        Write `word` at `addr` in L1D, L1I or L2 Cache. Request load from lower levels if not
-        present.
-        """
-        match cache_type:
-            case CacheType.L1I:
-                cache = self.l1i
-            case CacheType.L1D:
-                cache = self.l1d
-            case CacheType.L2:
-                cache = self.l2
-
-        hitmiss = cache.write_word(addr, word)
-
-        match hitmiss:
-            case WriteSignal.HIT:
-                if cache.write_policy is WritePolicy.WRITE_THROUGH:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            self.write_word_cache(addr, word, CacheType.L2)
-                        case CacheType.L2:
-                            self.ram.write_word(addr, word)
-                            self.ram.latency
-
-            case WriteSignal.MISS:
-                if cache.write_policy is WritePolicy.WRITE_THROUGH:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            self.write_word_cache(addr, word, CacheType.L2)
-                        case CacheType.L2:
-                            self.ram.write_word(addr, word)
-                            self.ram.latency
-
-                else:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            new_block = self.read_block_l2(addr)
-                        case CacheType.L2:
-                            new_block = self.read_block_ram(addr)
-
-                    evicted = cache.insert(addr, new_block)
-
-                    hitmiss2 = cache.write_word(addr, word)
-                    if hitmiss2 is WriteSignal.MISS:
-                        raise MemoryHierarchyError(
-                            f"[BUG] Write after refill must result in a hit"
-                        )
-
-                    if evicted is not None:
-                        base_addr, evicted_block = evicted
-                        match cache_type:
-                            case CacheType.L1I | CacheType.L1D:
-                                self.write_block_l2(base_addr, evicted_block)
-                            case CacheType.L2:
-                                self.write_block_ram(base_addr, evicted_block)
+                if evicted is not None:
+                    base_addr, evicted_block = evicted
+                    self.write_block_mu(base_addr, evicted_block, next_level_cache)
 
         return None
 
     # -------------------------------------------------------------------------------- #
     # Functions to read and write halfwords
 
-    def read_halfword_l1(self, addr: UInt32, cache_type: CacheType) -> UInt16:
-        """
-        Read halfword at `addr` in L1 cache. Request load from lower levels if not present.
-        """
+    def read_halfword_mu(self, addr: UInt32, memory_unit: MemoryUnit) -> UInt16:
+        if isinstance(memory_unit, RAM32):
+            return self.ram.read_halfword(addr)
 
-        match cache_type:
-            case CacheType.L1I:
-                cache = self.l1i
-            case CacheType.L1D:
-                cache = self.l1d
-            case CacheType.L2:
-                raise MemoryHierarchyError(f"[BUG] Can not read directly from L2 Cache")
-
+        cache = memory_unit
         halfword = cache.read_halfword(addr)
 
         if halfword is not None:
@@ -324,7 +220,8 @@ class MemoryHierarchy:
             return halfword
 
         # cache miss
-        new_block = self.read_block_l2(addr)
+        next_level_cache = cache.next_level
+        new_block = self.read_block_mu(addr, next_level_cache)
         evicted = cache.insert(addr, new_block)
 
         halfword = cache.read_halfword(addr)
@@ -333,86 +230,130 @@ class MemoryHierarchy:
 
         if evicted is not None:
             base_addr, evicted_block = evicted
-            self.write_block_l2(base_addr, evicted_block)
+            self.write_block_mu(base_addr, evicted_block, next_level_cache)
 
         return halfword
 
-    def write_halfword_cache(self, addr: UInt32, halfword: UInt16, cache_type: CacheType) -> None:
-        """
-        Write `halfword` at `addr` in L1D, L1I or L2 Cache. Request load from lower levels if not
-        present.
-        """
-        match cache_type:
-            case CacheType.L1I:
-                cache = self.l1i
-            case CacheType.L1D:
-                cache = self.l1d
-            case CacheType.L2:
-                cache = self.l2
+    def write_halfword_mu(
+        self, addr: UInt32, halfword: UInt16, memory_unit: MemoryUnit
+    ) -> None:
+        if isinstance(memory_unit, RAM32):
+            return self.ram.write_halfword(addr, halfword)
 
+        cache = memory_unit
         hitmiss = cache.write_halfword(addr, halfword)
+        next_level_cache = cache.next_level
 
-        match hitmiss:
-            case WriteSignal.HIT:
-                if cache.write_policy is WritePolicy.WRITE_THROUGH:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            self.write_halfword_cache(addr, halfword, CacheType.L2)
-                        case CacheType.L2:
-                            self.ram.write_halfword(addr, halfword)
-                            self.ram.latency
+        if hitmiss is WriteSignal.HIT:
+            if cache.write_policy is WritePolicy.WRITE_THROUGH:
+                self.write_halfword_mu(addr, halfword, next_level_cache)
 
-            case WriteSignal.MISS:
-                if cache.write_policy is WritePolicy.WRITE_THROUGH:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            self.write_halfword_cache(addr, halfword, CacheType.L2)
-                        case CacheType.L2:
-                            self.ram.write_halfword(addr, halfword)
-                            self.ram.latency
+        else:
+            # hitmiss was a MISS
+            if cache.write_policy is WritePolicy.WRITE_THROUGH:
+                # write through  -  write-no-allocate policy
+                self.write_halfword_mu(addr, halfword, next_level_cache)
 
-                else:
-                    match cache_type:
-                        case CacheType.L1I | CacheType.L1D:
-                            new_block = self.read_block_l2(addr)
-                        case CacheType.L2:
-                            new_block = self.read_block_ram(addr)
+            else:
+                # write back  -  write-allocate policy
+                new_block = self.read_block_mu(addr, next_level_cache)
+                evicted = cache.insert(addr, new_block)
 
-                    evicted = cache.insert(addr, new_block)
+                hitmiss2 = cache.write_halfword(addr, halfword)
+                if hitmiss2 is WriteSignal.MISS:
+                    raise MemoryHierarchyError(
+                        f"[BUG] Write after refill must result in a hit"
+                    )
 
-                    hitmiss2 = cache.write_halfword(addr, halfword)
-                    if hitmiss2 is WriteSignal.MISS:
-                        raise MemoryHierarchyError(
-                            f"[BUG] Write after refill must result in a hit"
-                        )
+                if evicted is not None:
+                    base_addr, evicted_block = evicted
+                    self.write_block_mu(base_addr, evicted_block, next_level_cache)
 
-                    if evicted is not None:
-                        base_addr, evicted_block = evicted
-                        match cache_type:
-                            case CacheType.L1I | CacheType.L1D:
-                                self.write_block_l2(base_addr, evicted_block)
-                            case CacheType.L2:
-                                self.write_block_ram(base_addr, evicted_block)
+        return None
+
+    # -------------------------------------------------------------------------------- #
+    # Functions to read and write words
+
+    def read_word_mu(self, addr: UInt32, memory_unit: MemoryUnit) -> UInt32:
+        if isinstance(memory_unit, RAM32):
+            return self.ram.read_word(addr)
+
+        cache = memory_unit
+        word = cache.read_word(addr)
+
+        if word is not None:
+            # cache hit
+            return word
+
+        # cache miss
+        next_level_cache = cache.next_level
+        new_block = self.read_block_mu(addr, next_level_cache)
+        evicted = cache.insert(addr, new_block)
+
+        word = cache.read_word(addr)
+        if word is None:
+            raise MemoryHierarchyError(f"[BUG] Read after refill must result in a hit")
+
+        if evicted is not None:
+            base_addr, evicted_block = evicted
+            self.write_block_mu(base_addr, evicted_block, next_level_cache)
+
+        return word
+
+    def write_word_mu(
+        self, addr: UInt32, word: UInt32, memory_unit: MemoryUnit
+    ) -> None:
+        if isinstance(memory_unit, RAM32):
+            return self.ram.write_word(addr, word)
+
+        cache = memory_unit
+        hitmiss = cache.write_word(addr, word)
+        next_level_cache = cache.next_level
+
+        if hitmiss is WriteSignal.HIT:
+            if cache.write_policy is WritePolicy.WRITE_THROUGH:
+                self.write_word_mu(addr, word, next_level_cache)
+
+        else:
+            # hitmiss was a MISS
+            if cache.write_policy is WritePolicy.WRITE_THROUGH:
+                # write through  -  write-no-allocate policy
+                self.write_word_mu(addr, word, next_level_cache)
+
+            else:
+                # write back  -  write-allocate policy
+                new_block = self.read_block_mu(addr, next_level_cache)
+                evicted = cache.insert(addr, new_block)
+
+                hitmiss2 = cache.write_word(addr, word)
+                if hitmiss2 is WriteSignal.MISS:
+                    raise MemoryHierarchyError(
+                        f"[BUG] Write after refill must result in a hit"
+                    )
+
+                if evicted is not None:
+                    base_addr, evicted_block = evicted
+                    self.write_block_mu(base_addr, evicted_block, next_level_cache)
 
         return None
 
     def read_byte(self, addr: UInt32) -> UInt8:
-        return self.read_byte_l1(addr, CacheType.L1D)
+        return self.read_byte_mu(addr, self.data_unit)
 
     def write_byte(self, addr: UInt32, byte: UInt8) -> None:
-        return self.write_byte_cache(addr, byte, CacheType.L1D)
+        return self.write_byte_mu(addr, byte, self.data_unit)
 
     def read_halfword(self, addr: UInt32) -> UInt16:
-        return self.read_halfword_l1(addr, CacheType.L1D)
+        return self.read_halfword_mu(addr, self.data_unit)
 
     def write_halfword(self, addr: UInt32, halfword: UInt16) -> None:
-        return self.write_halfword_cache(addr, halfword, CacheType.L1D)
-
-    def read_word_inst(self, addr: UInt32) -> UInt32:
-        return self.read_word_l1(addr, CacheType.L1I)
+        return self.write_halfword_mu(addr, halfword, self.data_unit)
 
     def read_word(self, addr: UInt32) -> UInt32:
-        return self.read_word_l1(addr, CacheType.L1D)
+        return self.read_word_mu(addr, self.data_unit)
 
     def write_word(self, addr: UInt32, word: UInt32) -> None:
-        return self.write_word_cache(addr, word, CacheType.L1D)
+        return self.write_word_mu(addr, word, self.data_unit)
+
+    def read_word_inst(self, addr: UInt32) -> UInt32:
+        return self.read_word_mu(addr, self.inst_unit)

@@ -2,7 +2,7 @@
 
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from math import log2
 
 from src.utils.bits import is_power_of_two
@@ -13,6 +13,7 @@ from src.hardware.memory.cache.policy_random import PolicyRandom
 from src.hardware.memory.cache.policy_lru import PolicyLRU
 from src.hardware.memory.cache.policy_fifo import PolicyFIFO
 from src.utils.stats import Statistics
+from src.hardware.memory.ram32 import RAM32
 
 
 class AddressMisaligned(Exception):
@@ -205,6 +206,9 @@ class Cache32:
 
         self.logger = logger
         self.stats = stats
+        self.next_level: Union[Cache32, RAM32]
+
+        self.valid = config.valid
 
         self.latency = config.latency
 
