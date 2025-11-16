@@ -132,6 +132,7 @@ class RAM32:
 
         if incr:
             self.stats.increment_memory_access()
+            self.stats.increment_clock_cycle(self.latency)
 
         return self.data[address]
 
@@ -144,6 +145,8 @@ class RAM32:
 
         if incr:
             self.stats.increment_memory_access()
+            self.stats.increment_clock_cycle(self.latency)
+
         self.data[address] = data
 
     # ---------------------------------------------------------------------------- #
@@ -168,6 +171,7 @@ class RAM32:
             data = data | byte << (i * RAM_WIDTH)
 
         self.stats.increment_memory_access()
+        self.stats.increment_clock_cycle(self.latency)
         return data
 
     def write_halfword(self, address: t_addr, data: HalfWord) -> None:
@@ -185,7 +189,8 @@ class RAM32:
             byte = data >> (i * RAM_WIDTH)
             self.write_byte(address + i, uint8(byte), incr=False)
 
-        self.stats.increment_memory_access(-1)
+        self.stats.increment_memory_access()
+        self.stats.increment_clock_cycle(self.latency)
 
     # ---------------------------------------------------------------------------- #
     # Functions for reading and writing word (4 bytes)
@@ -208,6 +213,7 @@ class RAM32:
             data |= uint32(byte) << (i * RAM_WIDTH)
 
         self.stats.increment_memory_access()
+        self.stats.increment_clock_cycle(self.latency)
         return data
 
     def write_word(self, address: t_addr, data: Word) -> None:
@@ -226,6 +232,7 @@ class RAM32:
             self.write_byte(address + i, byte, incr=False)
 
         self.stats.increment_memory_access()
+        self.stats.increment_clock_cycle(self.latency)
 
     # ---------------------------------------------------------------------------- #
     # Function for reading multiple bytes
@@ -240,6 +247,7 @@ class RAM32:
 
         many_bytes = [self.data.get(address + i, UInt8(0)) for i in range(count)]
         self.stats.increment_memory_access()
+        self.stats.increment_clock_cycle(self.latency)
         return many_bytes
 
     def write_bytes_many(self, address: t_addr, many_bytes: List[Byte]) -> None:
@@ -252,6 +260,7 @@ class RAM32:
             self.write_byte(address + i, many_bytes[i])
 
         self.stats.increment_memory_access()
+        self.stats.increment_clock_cycle(self.latency)
 
     def clear(self) -> None:
         """

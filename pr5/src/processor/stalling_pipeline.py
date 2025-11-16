@@ -52,7 +52,9 @@ class PipelineControl:
 
 
 class PipelinedProcessor(Processor):
-    def __init__(self, start: UInt32, mem: MemoryHierarchy, logger: PR5Logger, stats: Statistics):
+    def __init__(
+        self, start: UInt32, mem: MemoryHierarchy, logger: PR5Logger, stats: Statistics
+    ):
         super().__init__(start, mem, logger)
         self.stats = stats
 
@@ -204,9 +206,7 @@ class PipelinedProcessor(Processor):
                 return None
 
             case LatchControl.CONTD:
-                next_pc_if, late = self.fetch(pc_if)
-                self.stats.increment_clock_cycle(late)
-                return next_pc_if
+                return self.fetch(pc_if)
 
     def decode_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
@@ -297,9 +297,7 @@ class PipelinedProcessor(Processor):
                     self.logr.debug(f"[M] Bubble in MEM/WBs")
                     return None
 
-                next_ex_mem, late = self.mem_access(ex_mem)
-                self.stats.increment_clock_cycle(late)
-                return next_ex_mem
+                return self.mem_access(ex_mem)
 
     def update_pc_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
@@ -404,9 +402,8 @@ class PipelinedProcessor(Processor):
 
             self.logr.debug(f"+------- CC {self.stats.clock_cycles} -------+")
 
-            self.pretty_pipeline(latches)
-
             controls = self.hazard_detection_unit(latches)
+            self.pretty_pipeline(latches)
 
             self.writeback_pipelined(latches)
             next_if_id = self.fetch_controlled(latches, controls)

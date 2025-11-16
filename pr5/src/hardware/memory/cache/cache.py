@@ -12,6 +12,7 @@ from src.utils.logger import PR5Logger
 from src.hardware.memory.cache.policy_random import PolicyRandom
 from src.hardware.memory.cache.policy_lru import PolicyLRU
 from src.hardware.memory.cache.policy_fifo import PolicyFIFO
+from src.utils.stats import Statistics
 
 
 class AddressMisaligned(Exception):
@@ -197,10 +198,13 @@ class Cache32:
         if addr & 0b11 != 0:
             raise AddressMisaligned(addr, 4)
 
-    def __init__(self, config: CacheConfig, logger: PR5Logger) -> None:
+    def __init__(
+        self, config: CacheConfig, logger: PR5Logger, stats: Statistics
+    ) -> None:
         self._validate(config)
 
         self.logger = logger
+        self.stats = stats
 
         self.latency = config.latency
 
@@ -239,6 +243,8 @@ class Cache32:
         Return the byte at `addr` if present, otherwise return `None`
         """
 
+        self.stats.increment_clock_cycle(self.latency)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
@@ -257,6 +263,8 @@ class Cache32:
         """
 
         self._check_halfword_addr(addr)
+
+        self.stats.increment_clock_cycle(self.latency)
 
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
@@ -285,6 +293,8 @@ class Cache32:
 
         self._check_word_addr(addr)
 
+        self.stats.increment_clock_cycle(self.latency)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
@@ -310,6 +320,8 @@ class Cache32:
         Write the byte at `addr` if present and return `HIT`, otherwise return `MISS`.
         """
 
+        self.stats.increment_clock_cycle(self.latency)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
@@ -334,6 +346,8 @@ class Cache32:
         """
 
         self._check_halfword_addr(addr)
+
+        self.stats.increment_clock_cycle(self.latency)
 
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
@@ -363,6 +377,8 @@ class Cache32:
 
         self._check_word_addr(addr)
 
+        self.stats.increment_clock_cycle(self.latency)
+
         byte_idx = self._get_byte_idx(addr)
         set_idx = self._get_set_idx(addr)
         tag = self._get_tag(addr)
@@ -390,6 +406,8 @@ class Cache32:
         """
         Insert `block` into cache, return the possibly evicted dirty block and its base address
         """
+
+        self.stats.increment_clock_cycle(self.latency)
 
         tag = self._get_tag(addr)
         set_idx = self._get_set_idx(addr)
@@ -428,6 +446,7 @@ class Cache32:
         """
         Copy the block containing `addr` if present, otherwise return `None`
         """
+        self.stats.increment_clock_cycle(self.latency)
 
         tag = self._get_tag(addr)
         set_idx = self._get_set_idx(addr)
