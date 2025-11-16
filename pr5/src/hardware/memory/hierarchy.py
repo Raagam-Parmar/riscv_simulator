@@ -136,7 +136,7 @@ class MemoryHierarchy:
         base_addr, evicted_block = evicted
         self.write_block_mu(base_addr, evicted_block, next_level_unit)
 
-        if self.l2.write_policy is WritePolicy.WRITE_THROUGH:
+        if cache.write_policy is WritePolicy.WRITE_THROUGH:
             self.write_block_mu(addr, new_block, next_level_unit)
 
         return None

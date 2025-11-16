@@ -9,6 +9,7 @@ from src.hardware.memory.cache.cache import (
     CacheConfig,
     ReplacementPolicy,
     WritePolicy,
+    Mapping
 )
 from src.hardware.memory.ram32 import RAMConfig
 
@@ -86,6 +87,7 @@ class ConfigReader:
         assoc = self.config.getint(level, "assoc")
         policy = self.config.get(level, "replacement")
         write = self.config.get(level, "write_policy")
+        mapp = self.config.get(level, "mapping")
 
         match policy:
             case "FIFO":
@@ -93,15 +95,25 @@ class ConfigReader:
             case "LRU":
                 replacement = ReplacementPolicy.LRU
             case _:
-                raise ConfigurationError(f"Invalid Replacement Policy: {policy}")
+                raise ConfigurationError(f"Invalid replacement policy: {policy}")
 
         match write:
-            case "WB":  # writeback
+            case "WB" | "write-back":
                 write_policy = WritePolicy.WRITE_BACK
-            case "WT":
+            case "WT" | "write-through":
                 write_policy = WritePolicy.WRITE_THROUGH
             case _:
-                raise ConfigurationError(f"Invalid Write Policy: {write}")
+                raise ConfigurationError(f"Invalid write policy: {write}")
+
+        match mapp:
+            case "direct":
+                mapping = Mapping.DIRECT
+            case "full":
+                mapping = Mapping.FULL
+            case "set":
+                mapping = Mapping.SET
+            case _:
+                raise ConfigurationError(f"Invalid mapping: {mapp}")
 
         return CacheConfig(
             valid=valid,
@@ -109,6 +121,7 @@ class ConfigReader:
             cache_size=size,
             block_size=block_size,
             ways=assoc,
+            mapping=mapping,
             repl_policy=replacement,
             write_policy=write_policy,
         )

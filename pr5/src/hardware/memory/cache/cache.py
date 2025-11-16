@@ -53,6 +53,12 @@ class AllocatePolicy(Enum):
     WRITE_NO_ALLOC = auto()
 
 
+class Mapping(Enum):
+    SET = auto()
+    DIRECT = auto()
+    FULL = auto()
+
+
 class WriteSignal(Enum):
     HIT = auto()
     MISS = auto()
@@ -67,6 +73,7 @@ class CacheConfig:
     - `cache_size` : Bytes of data stored in the cache
     - `block_size` : Bytes of data stored in one block
     - `ways` : Number of ways (blocks) in a set
+    - `mapping` : Mapping type (`set`, `direct`, `full`)
     - `repl_policy` : Replacement policy
     - `write_policy` : Write policy
     """
@@ -76,6 +83,7 @@ class CacheConfig:
     cache_size: int
     block_size: int
     ways: int
+    mapping: Mapping
     repl_policy: ReplacementPolicy
     write_policy: WritePolicy
 
@@ -128,6 +136,7 @@ class Cache32:
         cache_size = config.cache_size
         block_size = config.block_size
         ways = config.ways
+        mapping = config.mapping
         latency = config.latency
 
         if cache_size <= 0:
@@ -164,6 +173,20 @@ class Cache32:
             raise CacheConfigError(
                 f"Association: ({ways}) must be between 1 and n_blocks ({n_blocks})"
             )
+
+        match mapping:
+            case Mapping.DIRECT:
+                if ways != 1:
+                    raise CacheConfigError(
+                        f"Mapping: Direct mapping must have association set to 1"
+                    )
+            case Mapping.FULL:
+                if ways != n_blocks:
+                    raise CacheConfigError(
+                        f"Mapping: Fully associative mapping must have association set to n_blocks ({n_blocks})"
+                    )
+            case Mapping.SET:
+                pass
 
         return None
 
