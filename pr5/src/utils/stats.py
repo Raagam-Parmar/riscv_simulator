@@ -16,8 +16,8 @@ class Statistics:
         self.memory_accesses = 0
         self.logr = loggr
 
-    def increment_clock_cycle(self):
-        self.clock_cycles += 1
+    def increment_clock_cycle(self, count: int = 1):
+        self.clock_cycles += count
 
     def increment_instruction_count(self):
         self.instruction_count += 1

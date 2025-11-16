@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 from src.utils.logger import PR5Logger
 from src.utils.constants import XWIDTH
@@ -131,7 +131,7 @@ class Processor(ABC):
         """
         return PC_IF_Latch(self.init_pc)
 
-    def fetch(self, pc_if_latch: PC_IF_Latch) -> IF_ID_Latch:
+    def fetch(self, pc_if_latch: PC_IF_Latch) -> Tuple[IF_ID_Latch, int]:
         """
         Fetch the instruction in the latch.
 
@@ -144,9 +144,9 @@ class Processor(ABC):
         pc = pc_if_latch.pc
 
         try:
-            instruction = self.mem.read_word_inst(pc)
+            instruction, late = self.mem.read_word_inst(pc)
             self.logr.debug(f"[F] Fetched instruction {instruction} at PC {uint32(pc)}")
-            return IF_ID_Latch(inst=instruction, pc=pc)
+            return IF_ID_Latch(inst=instruction, pc=pc), late
 
         except ValueError as e:
             self.logr.error(f"Error fetching instruction at {pc}: {e}")
@@ -309,7 +309,7 @@ class Processor(ABC):
 
         return PC_IF_Latch(pc=next_pc)
 
-    def mem_access(self, ex_mem_latch: EX_MEM_Latch) -> MEM_WB_Latch:
+    def mem_access(self, ex_mem_latch: EX_MEM_Latch) -> Tuple[MEM_WB_Latch, int]:
         """
         Perform memory access for the instruction.
 
@@ -328,15 +328,20 @@ class Processor(ABC):
 
                 match inst.op:
                     case Load_ops.LBU:
-                        loaded_data = uint32(self.mem.read_byte(addr))
+                        load, late = self.mem.read_byte(addr)
+                        loaded_data = uint32(load)
                     case Load_ops.LB:
-                        loaded_data = sext_uint32(self.mem.read_byte(addr))
+                        load, late = self.mem.read_byte(addr)
+                        loaded_data = sext_uint32(load)
                     case Load_ops.LHU:
-                        loaded_data = uint32(self.mem.read_halfword(addr))
+                        load, late = self.mem.read_halfword(addr)
+                        loaded_data = uint32(load)
                     case Load_ops.LH:
-                        loaded_data = sext_uint32(self.mem.read_halfword(addr))
+                        load, late = self.mem.read_halfword(addr)
+                        loaded_data = sext_uint32(load)
                     case Load_ops.LW:
-                        loaded_data = self.mem.read_word(addr)
+                        load, late = self.mem.read_word(addr)
+                        loaded_data = load
 
                 self.logr.debug(
                     f"[M] Retrieved data {loaded_data} from memory address {addr}"
@@ -347,7 +352,7 @@ class Processor(ABC):
                     result=ex_mem_latch.result,
                     loaded_data=loaded_data,
                     pc=ex_mem_latch.pc,
-                )
+                ), late
 
             case Store():
                 addr = ex_mem_latch.result
@@ -358,11 +363,11 @@ class Processor(ABC):
 
                 match inst.op:
                     case Store_ops.SB:
-                        self.mem.write_byte(addr, uint8(data))
+                        late = self.mem.write_byte(addr, uint8(data))
                     case Store_ops.SH:
-                        self.mem.write_halfword(addr, uint16(data))
+                        late = self.mem.write_halfword(addr, uint16(data))
                     case Store_ops.SW:
-                        self.mem.write_word(addr, data)
+                        late = self.mem.write_word(addr, data)
 
                 self.logr.debug(f"[M] Stored data {data} to memory address {addr}")
 
@@ -371,7 +376,7 @@ class Processor(ABC):
                     result=ex_mem_latch.result,
                     loaded_data=None,
                     pc=ex_mem_latch.pc,
-                )
+                ), late
 
             case (
                 Reg_reg()
@@ -393,7 +398,7 @@ class Processor(ABC):
                     result=ex_mem_latch.result,
                     loaded_data=None,
                     pc=ex_mem_latch.pc,
-                )
+                ), 0
 
     def log_instruction(
         self, mem_wb_latch: MEM_WB_Latch, pc_if_latch: PC_IF_Latch
