@@ -2,7 +2,8 @@
 # Random Acccess Memory
 """
 
-from typing import Dict
+from typing import Dict, List
+from dataclasses import dataclass
 
 from src.utils.logger import PR5Logger
 from src.utils.pretty import pp_word
@@ -65,8 +66,19 @@ class UnwrittenMemoryAddress(Exception):
         super().__init__(self.message)
 
 
+class RAMError(Exception):
+    def __init__(self, msg: str):
+        self.message = msg
+        super().__init__(msg)
+
+
+@dataclass(frozen=True)
+class RAMConfig:
+    latency: int
+
+
 class RAM32:
-    def __init__(self, logger: PR5Logger) -> None:
+    def __init__(self, ram_config: RAMConfig, logger: PR5Logger) -> None:
         """Initialise a RAM, 32-bit addressible and 32-bit wide.
 
         :param logger: RAM events logger
@@ -76,6 +88,7 @@ class RAM32:
         """Address (`uint32`) to byte (`uint8`) hashmap"""
 
         self.logger = logger
+        self.latency = ram_config.latency
 
     def _check_halfword_addr(self, address: t_addr) -> None:
         """
@@ -200,6 +213,27 @@ class RAM32:
             self.write_byte(address + i, byte)
 
     # ---------------------------------------------------------------------------- #
+    # Function for reading multiple bytes
+
+    def read_bytes_many(self, address: t_addr, count: int) -> List[Byte]:
+        """
+        Read `count` many bytes, starting at `address`. Unwritten bytes are set to
+        zeroes.
+        """
+        if count < 0:
+            raise RAMError(f"Byte count ({count}) must be non-negative")
+
+        many_bytes = [self.data.get(address + i, UInt8(0)) for i in range(count)]
+        return many_bytes
+
+    def write_bytes_many(self, address: t_addr, many_bytes: List[Byte]) -> None:
+        """
+        Write `many_bytes` into the RAM, starting from base `address`
+        """
+        count = len(many_bytes)
+
+        for i in range(count):
+            self.write_byte(address + i, many_bytes[i])
 
     def clear(self) -> None:
         """
