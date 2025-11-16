@@ -26,7 +26,7 @@ def load(ram: RAM32, r5ob_path: Union[str, Path], start_addr: int) -> int:
 
     with open(r5ob_path, "rb") as f:
         while byte := f.read(1):
-            ram.write_byte(uint32(offset), uint8(byte[0]))
+            ram.write_byte(uint32(offset), uint8(byte[0]), incr=False)
             offset += 1
 
     return offset

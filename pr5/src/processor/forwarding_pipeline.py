@@ -53,7 +53,9 @@ class PipelineControl:
 
 
 class ForwardingPipelined(Processor):
-    def __init__(self, start: UInt32, mem: MemoryHierarchy, logger: PR5Logger, stats: Statistics):
+    def __init__(
+        self, start: UInt32, mem: MemoryHierarchy, logger: PR5Logger, stats: Statistics
+    ):
         super().__init__(start, mem, logger)
         self.stats = stats
 
@@ -454,7 +456,9 @@ class ForwardingPipelined(Processor):
                 return None
 
             case LatchControl.CONTD:
-                return self.fetch(pc_if)
+                next_pc_if, late = self.fetch(pc_if)
+                self.stats.increment_clock_cycle(late)
+                return next_pc_if
 
     def decode_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
@@ -540,7 +544,10 @@ class ForwardingPipelined(Processor):
                     self.logr.debug(f"[M] Bubble in MEM/WBs")
                     return None
 
-                return self.mem_access(ex_mem)
+                next_ex_mem, late =self.mem_access(ex_mem)
+                self.stats.increment_clock_cycle(late)
+                return next_ex_mem
+
 
     def update_pc_controlled(
         self, latches: PipelineLatches, controls: PipelineControl

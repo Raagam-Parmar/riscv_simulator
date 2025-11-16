@@ -22,7 +22,7 @@ class Statistics:
     def increment_instruction_count(self):
         self.instruction_count += 1
 
-    def increment_memory_access(self):
+    def increment_memory_access(self, count: int = 1):
         self.memory_accesses += 1
 
     def increment_register_access(self):

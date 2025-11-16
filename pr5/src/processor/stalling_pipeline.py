@@ -204,7 +204,9 @@ class PipelinedProcessor(Processor):
                 return None
 
             case LatchControl.CONTD:
-                return self.fetch(pc_if)
+                next_pc_if, late = self.fetch(pc_if)
+                self.stats.increment_clock_cycle(late)
+                return next_pc_if
 
     def decode_controlled(
         self, latches: PipelineLatches, controls: PipelineControl
@@ -295,7 +297,9 @@ class PipelinedProcessor(Processor):
                     self.logr.debug(f"[M] Bubble in MEM/WBs")
                     return None
 
-                return self.mem_access(ex_mem)
+                next_ex_mem, late = self.mem_access(ex_mem)
+                self.stats.increment_clock_cycle(late)
+                return next_ex_mem
 
     def update_pc_controlled(
         self, latches: PipelineLatches, controls: PipelineControl

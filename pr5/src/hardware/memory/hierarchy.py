@@ -11,6 +11,7 @@ from src.hardware.memory.cache.cache import (
 from src.utils.cint import *
 from src.hardware.memory.ram32 import RAM32, RAMConfig
 from src.utils.logger import PR5Logger
+from src.utils.stats import Statistics
 
 
 class MemoryHierarchyError(Exception):
@@ -27,14 +28,22 @@ class MemoryHierarchy:
         l2_config: CacheConfig,
         ram_config: RAMConfig,
         logger: PR5Logger,
+        stats: Statistics
     ) -> None:
         # TODO Error checks
 
         self.l1d = Cache32(l1d_config, logger)
         self.l1i = Cache32(l1i_config, logger)
         self.l2 = Cache32(l2_config, logger)
-        self.ram = RAM32(ram_config, logger)
+        self.ram = RAM32(ram_config, logger, stats)
         self.block_size = self.l1d.block_size
+
+        if (
+            self.l1d.block_size != self.l1i.block_size
+            or (self.l1d.block_size != self.l2.block_size)
+            or (self.l1i.block_size != self.l2.block_size)
+        ):
+            raise MemoryHierarchyError(f"Caches must have same block size")
 
     def _get_base_addr(self, addr: UInt32) -> UInt32:
         """
@@ -155,9 +164,7 @@ class MemoryHierarchy:
 
         return byte, late
 
-    def write_byte_cache(
-        self, addr: UInt32, byte: UInt8, cache_type: CacheType
-    ) -> int:
+    def write_byte_cache(self, addr: UInt32, byte: UInt8, cache_type: CacheType) -> int:
         """
         Write `byte` at `addr` in L1D, L1I or L2 Cache. Request load from lower levels if not
         present.
@@ -221,7 +228,9 @@ class MemoryHierarchy:
     # -------------------------------------------------------------------------------- #
     # Functions to read and write halfwords
 
-    def read_halfword_l1(self, addr: UInt32, cache_type: CacheType) -> Tuple[UInt16, int]:
+    def read_halfword_l1(
+        self, addr: UInt32, cache_type: CacheType
+    ) -> Tuple[UInt16, int]:
         """
         Read halfword at `addr` in L1 cache. Request load from lower levels if not present.
         """
@@ -283,7 +292,9 @@ class MemoryHierarchy:
                 if cache.write_policy is WritePolicy.WRITE_THROUGH:
                     match cache_type:
                         case CacheType.L1I | CacheType.L1D:
-                            late += self.write_halfword_cache(addr, halfword, CacheType.L2)
+                            late += self.write_halfword_cache(
+                                addr, halfword, CacheType.L2
+                            )
                         case CacheType.L2:
                             self.ram.write_halfword(addr, halfword)
                             late += self.ram.latency
@@ -292,7 +303,9 @@ class MemoryHierarchy:
                 if cache.write_policy is WritePolicy.WRITE_THROUGH:
                     match cache_type:
                         case CacheType.L1I | CacheType.L1D:
-                            late += self.write_halfword_cache(addr, halfword, CacheType.L2)
+                            late += self.write_halfword_cache(
+                                addr, halfword, CacheType.L2
+                            )
                         case CacheType.L2:
                             self.ram.write_halfword(addr, halfword)
                             late += self.ram.latency

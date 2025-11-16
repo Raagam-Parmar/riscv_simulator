@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from src.utils.logger import PR5Logger
 from src.utils.pretty import pp_word
 from src.utils.cint import *
+from src.utils.stats import Statistics
 
 
 RAM_WIDTH: int = 8
@@ -78,7 +79,9 @@ class RAMConfig:
 
 
 class RAM32:
-    def __init__(self, ram_config: RAMConfig, logger: PR5Logger) -> None:
+    def __init__(
+        self, ram_config: RAMConfig, logger: PR5Logger, stats: Statistics
+    ) -> None:
         """Initialise a RAM, 32-bit addressible and 32-bit wide.
 
         :param logger: RAM events logger
@@ -89,6 +92,7 @@ class RAM32:
 
         self.logger = logger
         self.latency = ram_config.latency
+        self.stats = stats
 
     def _check_halfword_addr(self, address: t_addr) -> None:
         """
@@ -113,7 +117,7 @@ class RAM32:
     # ---------------------------------------------------------------------------- #
     # Functions for reading and writing bytes
 
-    def read_byte(self, address: t_addr) -> Byte:
+    def read_byte(self, address: t_addr, incr: bool = True) -> Byte:
         """
         Read a byte at `address`.
 
@@ -126,15 +130,20 @@ class RAM32:
         if address not in self.data:
             raise UnwrittenMemoryAddress(address)
 
+        if incr:
+            self.stats.increment_memory_access()
+
         return self.data[address]
 
-    def write_byte(self, address: t_addr, data: Byte) -> None:
+    def write_byte(self, address: t_addr, data: Byte, incr: bool = True) -> None:
         """
         Write a byte at `address`.
 
         :param address: LSB address of the byte
         """
 
+        if incr:
+            self.stats.increment_memory_access()
         self.data[address] = data
 
     # ---------------------------------------------------------------------------- #
@@ -154,10 +163,11 @@ class RAM32:
         data = uint16(0)
 
         for i in range(2):
-            byte = self.read_byte(address + i)
+            byte = self.read_byte(address + i, incr=False)
             byte = uint16(byte)
             data = data | byte << (i * RAM_WIDTH)
 
+        self.stats.increment_memory_access()
         return data
 
     def write_halfword(self, address: t_addr, data: HalfWord) -> None:
@@ -173,7 +183,9 @@ class RAM32:
 
         for i in range(2):
             byte = data >> (i * RAM_WIDTH)
-            self.write_byte(address + i, uint8(byte))
+            self.write_byte(address + i, uint8(byte), incr=False)
+
+        self.stats.increment_memory_access(-1)
 
     # ---------------------------------------------------------------------------- #
     # Functions for reading and writing word (4 bytes)
@@ -192,9 +204,10 @@ class RAM32:
         data = uint32(0)
 
         for i in range(4):
-            byte = self.read_byte(address + i)
+            byte = self.read_byte(address + i, incr=False)
             data |= uint32(byte) << (i * RAM_WIDTH)
 
+        self.stats.increment_memory_access()
         return data
 
     def write_word(self, address: t_addr, data: Word) -> None:
@@ -210,7 +223,9 @@ class RAM32:
 
         for i in range(4):
             byte = uint8((data >> (i * RAM_WIDTH)))
-            self.write_byte(address + i, byte)
+            self.write_byte(address + i, byte, incr=False)
+
+        self.stats.increment_memory_access()
 
     # ---------------------------------------------------------------------------- #
     # Function for reading multiple bytes
@@ -224,6 +239,7 @@ class RAM32:
             raise RAMError(f"Byte count ({count}) must be non-negative")
 
         many_bytes = [self.data.get(address + i, UInt8(0)) for i in range(count)]
+        self.stats.increment_memory_access()
         return many_bytes
 
     def write_bytes_many(self, address: t_addr, many_bytes: List[Byte]) -> None:
@@ -234,6 +250,8 @@ class RAM32:
 
         for i in range(count):
             self.write_byte(address + i, many_bytes[i])
+
+        self.stats.increment_memory_access()
 
     def clear(self) -> None:
         """
@@ -253,7 +271,7 @@ class RAM32:
         """
 
         for offset, byte in enumerate(data):
-            self.write_byte(base_addr + offset, uint8(byte))
+            self.write_byte(base_addr + offset, uint8(byte), incr=False)
 
         return len(data)
 
