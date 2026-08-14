@@ -96,7 +96,7 @@ class PipelinedProcessor(Processor):
 
         if ex_mem is not None and has_rd(ex_mem.inst):
             if (has_rs1(dis) and (dis.rs1 == ex_mem.inst.rd) and (dis.rs1 != 0)) or (
-                has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd) and (dis.rs1 != 0)
+                has_rs2(dis) and (dis.rs2 == ex_mem.inst.rd) and (dis.rs2 != 0)
             ):
                 self.logr.debug("    RAW hazard: IF/ID and EX/MEM")
                 return pipeline_control
