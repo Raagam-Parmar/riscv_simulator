@@ -284,7 +284,7 @@ class ForwardingPipelined(Processor):
             has_rs2(inst1) and inst1.rs2 == inst2.rd
         )
 
-    def _write_branch_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
+    def _write_jump_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
         """
         Checks if there is a write-branch dependency, i.e, is `inst1` a branch
         instruction, and `inst2` writes to a non-zero destination register, which
@@ -307,7 +307,7 @@ class ForwardingPipelined(Processor):
 
         return False
 
-    def _load_branch_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
+    def _load_jump_dependency(self, inst1: Instruction, inst2: Instruction) -> bool:
         """
         Checks if there is a load-branch dependency, i.e., is `inst1` a branch
         instruction, and `inst2` a load instruction, such that `inst1` is reading
@@ -364,12 +364,12 @@ class ForwardingPipelined(Processor):
                 self.logr.debug("    Data Hazard: Load-use, IF/ID depends on ID/EX")
                 return stall_by_id_ex
 
-            if self._write_branch_dependency(if_id_inst, id_ex.inst):
+            if self._write_jump_dependency(if_id_inst, id_ex.inst):
                 self.logr.debug("    Data Hazard: Write-branch, IF/ID depends on ID/EX")
                 return stall_by_id_ex
 
         if ex_mem is not None:
-            if self._load_branch_dependency(if_id_inst, ex_mem.inst):
+            if self._load_jump_dependency(if_id_inst, ex_mem.inst):
                 self.logr.debug("    Data Hazard: Load-branch, IF/ID depends on EX/MEM")
                 return stall_by_id_ex
 
